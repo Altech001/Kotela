@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -15,7 +16,6 @@ import { useAuth } from '@/hooks/use-auth';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, FormEvent, useEffect } from 'react';
-import { KotelaIcon } from '@/components/icons';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -86,8 +86,7 @@ export default function SignupPage() {
   return (
     <Card className="w-full max-w-md">
       <CardHeader className="text-center">
-        <KotelaIcon className="mx-auto h-10 w-10 mb-2" />
-        <CardTitle>Create an Account</CardTitle>
+        <CardTitle className="text-3xl font-bold">Sign Up</CardTitle>
         <CardDescription>Join Kotela and start mining today.</CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
@@ -192,7 +191,7 @@ export default function SignupPage() {
           </Button>
           <p className="text-xs text-center text-muted-foreground">
             Already have an account?{' '}
-            <Link href="/login" className="underline text-primary">
+            <Link href="/login" className="underline">
               Log in
             </Link>
           </p>

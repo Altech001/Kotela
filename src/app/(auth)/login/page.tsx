@@ -1,28 +1,18 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/hooks/use-auth';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, FormEvent, useEffect } from 'react';
-import { KotelaIcon } from '@/components/icons';
-import { Loader2, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Chrome, Wallet } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const { login, user, loading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
@@ -47,15 +37,16 @@ export default function LoginPage() {
   };
 
   return (
-    <Card className="w-full max-w-sm">
-      <CardHeader className="text-center">
-        <KotelaIcon className="mx-auto h-10 w-10 mb-2" />
-        <CardTitle>Welcome Back</CardTitle>
-        <CardDescription>Enter your email to log in to Kotela.</CardDescription>
-      </CardHeader>
-      <form onSubmit={handleSubmit}>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
+    <div className="w-full max-w-sm">
+      <div className="grid gap-6">
+        <div className="grid gap-2 text-left">
+          <h1 className="text-3xl font-bold">Login</h1>
+          <p className="text-muted-foreground">
+            Enter your email below to login to your account
+          </p>
+        </div>
+        <form onSubmit={handleSubmit} className="grid gap-4">
+          <div className="grid gap-2">
             <Label htmlFor="email">Email</Label>
             <Input
               id="email"
@@ -66,41 +57,56 @@ export default function LoginPage() {
               onChange={(e) => setEmail(e.target.value)}
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <div className="relative">
-              <Input
-                id="password"
-                type={showPassword ? 'text' : 'password'}
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="absolute inset-y-0 right-0 h-full px-3"
-                onClick={() => setShowPassword(!showPassword)}
+          <div className="grid gap-2">
+            <div className="flex items-center">
+              <Label htmlFor="password">Password</Label>
+              <Link
+                href="#" // Update this path if a forgot password page exists
+                className="ml-auto inline-block text-sm underline"
               >
-                {showPassword ? <EyeOff /> : <Eye />}
-              </Button>
+                Forgot your password?
+              </Link>
             </div>
+            <Input
+              id="password"
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
           </div>
-        </CardContent>
-        <CardFooter className="flex flex-col gap-4">
           <Button type="submit" className="w-full" disabled={loading}>
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Log In
+            Login
           </Button>
-          <p className="text-xs text-center text-muted-foreground">
-            Don't have an account?{' '}
-            <Link href="/signup" className="underline text-primary">
-              Sign up
-            </Link>
-          </p>
-        </CardFooter>
-      </form>
-    </Card>
+        </form>
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <span className="w-full border-t" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-background px-2 text-muted-foreground">
+              Or continue with
+            </span>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <Button variant="outline" disabled>
+            <Wallet className="mr-2 h-4 w-4" />
+            Sui Wallet
+          </Button>
+          <Button variant="outline" disabled>
+            <Chrome className="mr-2 h-4 w-4" />
+            Google
+          </Button>
+        </div>
+        <div className="mt-4 text-center text-sm">
+          Don&apos;t have an account?{" "}
+          <Link href="/signup" className="underline">
+            Sign up
+          </Link>
+        </div>
+      </div>
+    </div>
   );
 }
