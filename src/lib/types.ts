@@ -9,6 +9,7 @@ export type User = {
   referralCode: string;
   isKycVerified: boolean;
   walletAddresses: string[];
+  referredBy?: string; // ID of the user who referred this user
 };
 
 export type Boost = {

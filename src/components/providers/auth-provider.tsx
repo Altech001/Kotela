@@ -76,42 +76,66 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const newUser = createUserObject(firebaseUser, extraData);
 
       const batch = writeBatch(db);
+      const usersRef = collection(db, 'users');
 
       // Handle referral bonus
       if (extraData.referralCode && extraData.referralCode.trim() !== '') {
-        const usersRef = collection(db, 'users');
         const q = query(usersRef, where('referralCode', '==', extraData.referralCode));
         const querySnapshot = await getDocs(q);
         
         if (!querySnapshot.empty) {
-          const referrerDoc = querySnapshot.docs[0];
-          const referrerData = referrerDoc.data() as User;
+          const directReferrerDoc = querySnapshot.docs[0];
+          const directReferrerData = directReferrerDoc.data() as User;
 
-          const REFERRER_BONUS = 250;
           const NEW_USER_BONUS = 100;
+          const TIER_1_BONUS = 250; // Direct referrer
+          const TIER_2_BONUS = 50; // Indirect referrer (grand-referrer)
 
           // Award bonus to new user
           newUser.ktc += NEW_USER_BONUS;
+          newUser.referredBy = directReferrerDoc.id; // Track who referred this user
           const newUserBonusTx: Transaction = {
             id: `tx-${Date.now()}-signup-bonus`,
             type: 'deposit',
             amount: NEW_USER_BONUS,
             timestamp: new Date().toISOString(),
-            description: 'Referral signup bonus',
+            description: `Signup bonus for using referral code ${extraData.referralCode}`,
           };
           newUser.transactions.push(newUserBonusTx);
 
-          // Award bonus to referrer
-          const referrerRef = doc(db, 'users', referrerDoc.id);
-          const newReferrerKtc = referrerData.ktc + REFERRER_BONUS;
-          const referrerBonusTx: Transaction = {
-            id: `tx-${Date.now()}-referral-bonus`,
+          // Award bonus to direct referrer (Tier 1)
+          const directReferrerRef = doc(db, 'users', directReferrerDoc.id);
+          const directReferrerBonusTx: Transaction = {
+            id: `tx-${Date.now()}-referral-t1`,
             type: 'deposit',
-            amount: REFERRER_BONUS,
+            amount: TIER_1_BONUS,
             timestamp: new Date().toISOString(),
             description: `Referral bonus for ${newUser.email}`,
           };
-          batch.update(referrerRef, { ktc: newReferrerKtc, transactions: arrayUnion(referrerBonusTx) });
+          batch.update(directReferrerRef, { 
+            ktc: directReferrerData.ktc + TIER_1_BONUS, 
+            transactions: arrayUnion(directReferrerBonusTx) 
+          });
+
+          // Award bonus to indirect referrer (Tier 2), if they exist
+          if (directReferrerData.referredBy) {
+            const indirectReferrerRef = doc(db, 'users', directReferrerData.referredBy);
+            const indirectReferrerDoc = await getDoc(indirectReferrerRef);
+            if (indirectReferrerDoc.exists()) {
+              const indirectReferrerData = indirectReferrerDoc.data() as User;
+              const indirectReferrerBonusTx: Transaction = {
+                 id: `tx-${Date.now()}-referral-t2`,
+                 type: 'deposit',
+                 amount: TIER_2_BONUS,
+                 timestamp: new Date().toISOString(),
+                 description: `Tier 2 referral bonus from ${newUser.email}`,
+              };
+               batch.update(indirectReferrerRef, {
+                 ktc: indirectReferrerData.ktc + TIER_2_BONUS,
+                 transactions: arrayUnion(indirectReferrerBonusTx)
+               });
+            }
+          }
         }
       }
       
@@ -171,7 +195,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const transferKtc = useCallback(async (recipientIdentifier: string, amount: number) => {
     if (!user) throw new Error("You must be logged in to transfer KTC.");
-    if (recipientIdentifier === user.referralCode || user.walletAddresses.includes(recipientIdentifier)) {
+    if (recipientIdentifier === user.referralCode || (user.walletAddresses || []).includes(recipientIdentifier)) {
       throw new Error("You cannot send KTC to yourself.");
     }
 
