@@ -115,7 +115,7 @@ export function Store() {
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {storeItems.map((item) => {
             const Icon = iconMap[item.type];
             const isSoldOut = item.status === 'sold';
