@@ -17,7 +17,8 @@ const navItems = [
 
 export function DesktopNav() {
   const pathname = usePathname();
-  const { gameStatus, score } = useGame();
+  const { gameStatus, session } = useGame();
+  const score = session?.score || 0;
 
   return (
     <nav className="hidden items-center gap-2 md:flex">

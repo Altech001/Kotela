@@ -16,7 +16,8 @@ const navItems = [
 
 export function MobileNav() {
   const pathname = usePathname();
-  const { gameStatus, score } = useGame();
+  const { gameStatus, session } = useGame();
+  const score = session?.score || 0;
 
   return (
     <nav className="md:hidden fixed bottom-0 left-0 z-50 w-full h-16 bg-background border-t">
