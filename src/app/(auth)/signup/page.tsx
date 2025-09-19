@@ -69,6 +69,7 @@ export default function SignupPage() {
     try {
       console.log('Signing up with:', { email, phoneNumber, country, referral });
       await signup(email, password, {
+        // @ts-ignore
         phoneNumber,
         country,
         referralCode: referral,

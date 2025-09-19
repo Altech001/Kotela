@@ -3,7 +3,7 @@
 import { useState, useCallback, ReactNode, useEffect } from 'react';
 import { AuthContext } from '@/contexts/auth-context';
 import type { User } from '@/lib/types';
-import { auth } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import {
   onAuthStateChanged,
   createUserWithEmailAndPassword,
@@ -11,11 +11,13 @@ import {
   signOut,
   User as FirebaseUser,
 } from 'firebase/auth';
+import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 
-const createUserFromFirebase = (firebaseUser: FirebaseUser, extraData: Partial<User> = {}): User => ({
+
+const createUserObject = (firebaseUser: FirebaseUser, extraData: Partial<User> = {}): User => ({
   id: firebaseUser.uid,
   email: firebaseUser.email || 'no-email@example.com',
-  name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Player',
+  name: firebaseUser.displayName || extraData.name || firebaseUser.email?.split('@')[0] || 'Player',
   avatarUrl: firebaseUser.photoURL || `https://picsum.photos/seed/${firebaseUser.uid}/100/100`,
   ktc: 1000,
   boosts: [],
@@ -25,23 +27,23 @@ const createUserFromFirebase = (firebaseUser: FirebaseUser, extraData: Partial<U
   ...extraData,
 });
 
-
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        // In a real app, you'd fetch user profile from Firestore here
-        // For now, we check if there's local user data from signup
-        const localUser = localStorage.getItem('pendingUser');
-        if (localUser) {
-          const extraData = JSON.parse(localUser);
-          setUser(createUserFromFirebase(firebaseUser, extraData));
-          localStorage.removeItem('pendingUser');
+        const userDocRef = doc(db, 'users', firebaseUser.uid);
+        const userDoc = await getDoc(userDocRef);
+        if (userDoc.exists()) {
+          setUser(userDoc.data() as User);
         } else {
-          setUser(createUserFromFirebase(firebaseUser));
+          // This case might happen if a user was created in auth but not in firestore
+          // Let's create it now.
+           const newUser = createUserObject(firebaseUser);
+           await setDoc(userDocRef, newUser);
+           setUser(newUser);
         }
       } else {
         setUser(null);
@@ -56,6 +58,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
+      // onAuthStateChanged will handle setting the user state
     } finally {
       setLoading(false);
     }
@@ -64,14 +67,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signup = useCallback(async (email: string, password: string, extraData: Partial<User> = {}) => {
     setLoading(true);
     try {
-      // Temporarily store extra data to be picked up by onAuthStateChanged
-      localStorage.setItem('pendingUser', JSON.stringify(extraData));
-      await createUserWithEmailAndPassword(auth, email, password);
-    } catch(e) {
-      localStorage.removeItem('pendingUser');
-      throw e;
-    }
-    finally {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const firebaseUser = userCredential.user;
+      
+      const newUser = createUserObject(firebaseUser, extraData);
+      
+      await setDoc(doc(db, 'users', firebaseUser.uid), newUser);
+      
+      // onAuthStateChanged will handle setting user state, but we can set it here for faster UI update
+      setUser(newUser);
+
+    } finally {
       setLoading(false);
     }
   }, []);
@@ -80,14 +86,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(true);
     try {
       await signOut(auth);
+      setUser(null);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  const updateUser = useCallback((data: Partial<User>) => {
-    setUser((prev) => (prev ? { ...prev, ...data } : null));
-  }, []);
+  const updateUser = useCallback(async (data: Partial<User>) => {
+    if (user) {
+      const userDocRef = doc(db, 'users', user.id);
+      await updateDoc(userDocRef, data);
+      setUser((prev) => (prev ? { ...prev, ...data } : null));
+    }
+  }, [user]);
 
   const value = { user, loading, login, signup, logout, updateUser };
 
