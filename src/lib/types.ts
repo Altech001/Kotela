@@ -20,6 +20,7 @@ export type Boost = {
   cost: number;
   type: 'score_multiplier' | 'extra_time' | 'time_freeze' | 'mining_bot';
   value: number; // e.g., 2 for 2x multiplier, 10 for 10 extra seconds
+  status: 'available' | 'sold';
 };
 
 export type UserBoost = {

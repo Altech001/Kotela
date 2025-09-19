@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import type { Boost } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
 
@@ -11,12 +11,14 @@ interface GameContextType {
   score: number;
   timer: number;
   gameStatus: GameStatus;
+  isStoreOpen: boolean;
   startGame: () => void;
   tap: () => void;
   endGame: () => void;
   buyBoost: (boost: Boost) => boolean;
   activeBoosts: any; 
   activateBoost: (boostId: string) => void;
+  setIsStoreOpen: (isOpen: boolean) => void;
 }
 
 const GAME_DURATION = 30;
@@ -29,6 +31,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [timer, setTimer] = useState(GAME_DURATION);
   const [gameStatus, setGameStatus] = useState<GameStatus>('idle');
   const [activeBoosts, setActiveBoosts] = useState<any>({});
+  const [isStoreOpen, setIsStoreOpen] = useState(false);
   
   const hasMiningBot = user?.boosts.some((b) => b.boostId === 'bot-1' && b.quantity > 0);
 
@@ -46,8 +49,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }, [gameStatus, activeBoosts]);
 
   const endGame = useCallback(() => {
-    if (gameStatus !== 'playing' && user && score > 0) {
-        setGameStatus('ended');
+    if (gameStatus !== 'playing') return; // Prevent multiple calls
+
+    if (user && score > 0) {
         const newKtc = user.ktc + score;
         updateUser({ ktc: newKtc });
         addTransaction({
@@ -55,9 +59,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
             amount: score,
             description: 'Gameplay earnings',
         });
-    } else if (gameStatus === 'playing') {
-        setGameStatus('idle');
     }
+    setGameStatus('ended');
   }, [gameStatus, score, user, updateUser, addTransaction]);
 
   // Auto-tapping for mining bot
@@ -121,12 +124,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
     score,
     timer,
     gameStatus,
+    isStoreOpen,
     startGame,
     tap,
     endGame,
     buyBoost,
     activeBoosts,
     activateBoost,
+    setIsStoreOpen,
   };
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
