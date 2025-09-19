@@ -14,10 +14,23 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/use-auth';
 import { Badge } from '@/components/ui/badge';
-import { Copy, Send } from 'lucide-react';
+import { Copy, Send, ArrowUpCircle, ArrowDownCircle, ShoppingCart, Bot } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { useState } from 'react';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
+import { formatDistanceToNow } from 'date-fns';
+import type { Transaction } from '@/lib/types';
+import { cn } from '@/lib/utils';
+
+
+const transactionIcons = {
+  deposit: ArrowUpCircle,
+  withdrawal: ArrowDownCircle,
+  transfer: Send,
+  purchase: ShoppingCart,
+};
 
 export default function ProfilePage() {
   const { user, updateUser } = useAuth();
@@ -55,6 +68,15 @@ export default function ProfilePage() {
     setSendAmount('');
     setRecipient('');
   };
+
+  const sortedTransactions = user.transactions ? [...user.transactions].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()) : [];
+
+  const getTransactionIcon = (transaction: Transaction) => {
+    if (transaction.description.toLowerCase().includes('bot')) {
+      return Bot;
+    }
+    return transactionIcons[transaction.type] || Bot;
+  }
 
   return (
     <div className="container mx-auto space-y-8">
@@ -125,10 +147,11 @@ export default function ProfilePage() {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="send">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="send">Send</TabsTrigger>
               <TabsTrigger value="topup">Top Up</TabsTrigger>
               <TabsTrigger value="withdraw">Withdraw</TabsTrigger>
+              <TabsTrigger value="history">History</TabsTrigger>
             </TabsList>
             <TabsContent value="send" className="pt-4">
               <form className="space-y-4" onSubmit={handleSendKtc}>
@@ -151,6 +174,38 @@ export default function ProfilePage() {
             </TabsContent>
             <TabsContent value="withdraw" className="pt-4 text-center">
                <p className="text-muted-foreground">Withdrawal feature is coming soon.</p>
+            </TabsContent>
+             <TabsContent value="history" className="pt-4">
+              <ScrollArea className="h-72">
+                <div className="space-y-4">
+                  {sortedTransactions.length > 0 ? (
+                    sortedTransactions.map((tx, index) => {
+                      const Icon = getTransactionIcon(tx);
+                      const isCredit = tx.type === 'deposit';
+                      return (
+                        <div key={tx.id}>
+                          <div className="flex items-center gap-4">
+                             <Icon className={cn('h-6 w-6', isCredit ? 'text-green-500' : 'text-red-500')} />
+                            <div className="flex-1">
+                              <p className="font-medium">{tx.description}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {formatDistanceToNow(new Date(tx.timestamp), { addSuffix: true })}
+                              </p>
+                            </div>
+                            <div className={cn("font-mono text-right", isCredit ? 'text-green-500' : 'text-red-500')}>
+                              <p>{isCredit ? '+' : '-'} {tx.amount.toFixed(2)}</p>
+                              <p className='text-xs text-muted-foreground'>KTC</p>
+                            </div>
+                          </div>
+                           {index < sortedTransactions.length - 1 && <Separator className="my-4" />}
+                        </div>
+                      )
+                    })
+                  ) : (
+                    <p className="text-muted-foreground text-center">No transactions yet.</p>
+                  )}
+                </div>
+              </ScrollArea>
             </TabsContent>
           </Tabs>
         </CardContent>
