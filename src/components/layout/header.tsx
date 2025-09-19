@@ -1,12 +1,21 @@
-import { SidebarTrigger } from '@/components/ui/sidebar';
 import { UserNav } from './user-nav';
+import { DesktopNav } from './desktop-nav';
+import Link from 'next/link';
+import { KotelaIcon } from '../icons';
 
 export function Header() {
   return (
-    <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-sm sm:px-6">
-      <SidebarTrigger className="md:hidden" />
-      <div className="flex-1" />
-      <UserNav />
+    <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-sm sm:px-6">
+       <Link href="/" className="flex items-center gap-2 font-semibold">
+          <KotelaIcon className="h-6 w-6" />
+          <span className="">Kotela</span>
+        </Link>
+      <div className="flex-1 flex justify-center">
+        <DesktopNav />
+      </div>
+      <div className="w-[110px] flex justify-end">
+        <UserNav />
+      </div>
     </header>
   );
 }

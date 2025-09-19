@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { AuthProvider } from '@/components/providers/auth-provider';
-import { GameProvider } from '@/components/providers/game-provider';
+import { GameProvider } from '@/contexts/game-context';
 import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
