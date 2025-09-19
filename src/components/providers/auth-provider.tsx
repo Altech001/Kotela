@@ -3,7 +3,7 @@
 
 import { useState, useCallback, ReactNode, useEffect } from 'react';
 import { AuthContext } from '@/contexts/auth-context';
-import type { User, Transaction, Boost } from '@/lib/types';
+import type { User, Transaction, Boost, Powerup } from '@/lib/types';
 import { auth, db } from '@/lib/firebase';
 import {
   onAuthStateChanged,
@@ -14,6 +14,7 @@ import {
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs, writeBatch, arrayUnion, runTransaction, or } from 'firebase/firestore';
 import { storeItems as localStoreItems } from '@/lib/data';
+import { powerupItems as localPowerupItems } from '@/lib/powerups-data';
 
 
 const createWalletAddress = (uid: string) => `KTC_${uid.slice(0, 4)}${Date.now().toString(36).slice(-4)}${Math.random().toString(36).slice(2, 6)}`;
@@ -22,9 +23,10 @@ const createUserObject = (firebaseUser: FirebaseUser, extraData: Partial<User> =
   id: firebaseUser.uid,
   email: firebaseUser.email || 'no-email@example.com',
   name: firebaseUser.displayName || extraData.name || firebaseUser.email?.split('@')[0] || 'Player',
-  avatarUrl: firebaseUser.photoURL || `https://picsum.photos/seed/${firebaseUser.uid}/100/100`,
+  avatarUrl: `https://picsum.photos/seed/${firebaseUser.uid}/100/100`,
   ktc: 1000,
   boosts: [],
+  powerups: [],
   transactions: [],
   referralCode: `KOTELA-${firebaseUser.uid.slice(0, 8).toUpperCase()}`,
   walletAddresses: [createWalletAddress(firebaseUser.uid)],
@@ -32,10 +34,10 @@ const createUserObject = (firebaseUser: FirebaseUser, extraData: Partial<User> =
   ...extraData,
 });
 
-async function initializeBoosts() {
+async function initializeCollections() {
     const boostsRef = collection(db, 'boosts');
-    const snapshot = await getDocs(boostsRef);
-    if (snapshot.empty) {
+    const boostsSnapshot = await getDocs(boostsRef);
+    if (boostsSnapshot.empty) {
         const batch = writeBatch(db);
         localStoreItems.forEach((item) => {
             const docRef = doc(boostsRef, item.id);
@@ -44,6 +46,18 @@ async function initializeBoosts() {
         await batch.commit();
         console.log("Initialized 'boosts' collection from local data.");
     }
+    
+    const powerupsRef = collection(db, 'powerups');
+    const powerupsSnapshot = await getDocs(powerupsRef);
+    if (powerupsSnapshot.empty) {
+        const batch = writeBatch(db);
+        localPowerupItems.forEach((item) => {
+            const docRef = doc(powerupsRef, item.id);
+            batch.set(docRef, item);
+        });
+        await batch.commit();
+        console.log("Initialized 'powerups' collection from local data.");
+    }
 }
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
@@ -51,7 +65,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    initializeBoosts();
+    initializeCollections();
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         const userDocRef = doc(db, 'users', firebaseUser.uid);

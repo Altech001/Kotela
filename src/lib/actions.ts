@@ -5,7 +5,7 @@ import { analyzePrivacyRisks } from '@/ai/flows/privacy-risk-analysis';
 import { backgroundMiningSummary } from '@/ai/flows/background-mining-summary';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, orderBy, query, addDoc, serverTimestamp, where, doc, getDoc } from 'firebase/firestore';
-import type { User, Comment, Boost } from '@/lib/types';
+import type { User, Comment, Boost, Powerup } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 
 export async function runPrivacyAnalysis(gameplayData: string) {
@@ -117,6 +117,23 @@ export async function getBoosts(): Promise<Boost[]> {
     return [];
   }
 }
+
+export async function getPowerups(): Promise<Powerup[]> {
+  try {
+    const powerupsRef = collection(db, 'powerups');
+    const q = query(powerupsRef, orderBy('cost', 'asc'));
+    const querySnapshot = await getDocs(q);
+    const powerups: Powerup[] = [];
+    querySnapshot.forEach((doc) => {
+      powerups.push(doc.data() as Powerup);
+    });
+    return powerups;
+  } catch (error) {
+    console.error('Error fetching power-ups:', error);
+    return [];
+  }
+}
+
 
 export async function getBoost(boostId: string): Promise<Boost | null> {
   try {

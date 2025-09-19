@@ -6,6 +6,7 @@ export type User = {
   avatarUrl: string;
   ktc: number;
   boosts: UserBoost[];
+  powerups: UserPowerup[];
   transactions: Transaction[];
   referralCode: string;
   isKycVerified: boolean;
@@ -23,10 +24,26 @@ export type Boost = {
   status: 'available' | 'sold';
 };
 
+export type Powerup = {
+  id: string;
+  name: string;
+  description: string;
+  cost: number;
+  type: 'permanent_multiplier';
+  value: number;
+  status: 'available' | 'sold';
+  maxQuantity: 1;
+};
+
 export type UserBoost = {
   boostId: string;
   quantity: number;
 };
+
+export type UserPowerup = {
+  powerupId: string;
+  purchasedAt: string;
+}
 
 export type Transaction = {
   id: string;

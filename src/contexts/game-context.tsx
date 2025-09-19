@@ -3,16 +3,18 @@
 
 import { createContext, useState, useEffect, useCallback, ReactNode, useMemo } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import type { Boost as BoostType, UserBoost, GameSession } from '@/lib/types';
-import { runPrivacyAnalysis, getBoosts, getBoost } from '@/lib/actions';
+import type { Boost as BoostType, Powerup as PowerupType, GameSession } from '@/lib/types';
+import { runPrivacyAnalysis, getBoost, getPowerups } from '@/lib/actions';
 import { db } from '@/lib/firebase';
-import { doc, setDoc, getDoc, updateDoc, deleteDoc, onSnapshot, runTransaction } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, deleteDoc, onSnapshot, runTransaction, arrayUnion } from 'firebase/firestore';
 
 
 export type GameStatus = "idle" | "playing" | "ended";
 
 const BASE_GAME_DURATION = 30 * 1000; // 30 seconds in ms
 const BASE_MINING_RATE = 0.5; // KTC per second
+
+type StoreItem = BoostType | PowerupType;
 
 export interface GameContextType {
   session: GameSession | null;
@@ -23,7 +25,7 @@ export interface GameContextType {
   
   handleTap: () => void;
   resetGame: () => Promise<void>;
-  buyBoost: (boost: BoostType) => Promise<boolean>;
+  buyItem: (item: StoreItem) => Promise<boolean>;
   activateBoost: (boostId: string) => Promise<void>;
   activateExtraTime: (boostId: string) => Promise<void>;
 
@@ -205,8 +207,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setIsModalOpen(false);
   };
 
-  const buyBoost = useCallback(async (boost: BoostType): Promise<boolean> => {
-    if (!user || user.ktc < boost.cost) return false;
+  const buyItem = useCallback(async (item: StoreItem): Promise<boolean> => {
+    if (!user || user.ktc < item.cost) return false;
+
+    const isPowerup = 'maxQuantity' in item;
 
     try {
         const userRef = doc(db, 'users', user.id);
@@ -216,30 +220,41 @@ export function GameProvider({ children }: { children: ReactNode }) {
             if (!userDoc.exists()) throw "User does not exist!";
             
             const currentUser = userDoc.data() as any;
-            if (currentUser.ktc < boost.cost) throw "Insufficient KTC.";
+            if (currentUser.ktc < item.cost) throw "Insufficient KTC.";
 
-            const newBoosts = [...(currentUser.boosts || [])];
-            const existingBoostIndex = newBoosts.findIndex(b => b.boostId === boost.id);
+            if (isPowerup) {
+                const currentPowerups = currentUser.powerups || [];
+                const hasPowerup = currentPowerups.some((p: any) => p.powerupId === item.id);
+                if (hasPowerup) throw "Power-up already owned.";
+                
+                transaction.update(userRef, {
+                    ktc: currentUser.ktc - item.cost,
+                    powerups: arrayUnion({ powerupId: item.id, purchasedAt: new Date().toISOString() }),
+                });
 
-            if (existingBoostIndex > -1) {
-                newBoosts[existingBoostIndex].quantity += 1;
-            } else {
-                newBoosts.push({ boostId: boost.id, quantity: 1 });
+            } else { // It's a boost
+                const newBoosts = [...(currentUser.boosts || [])];
+                const existingBoostIndex = newBoosts.findIndex(b => b.boostId === item.id);
+
+                if (existingBoostIndex > -1) {
+                    newBoosts[existingBoostIndex].quantity += 1;
+                } else {
+                    newBoosts.push({ boostId: item.id, quantity: 1 });
+                }
+                transaction.update(userRef, {
+                    ktc: currentUser.ktc - item.cost,
+                    boosts: newBoosts,
+                });
             }
-
-            transaction.update(userRef, {
-                ktc: currentUser.ktc - boost.cost,
-                boosts: newBoosts,
-            });
         });
         
         await addTransaction({
             type: 'purchase',
-            amount: boost.cost,
-            description: `Purchased ${boost.name}`,
+            amount: item.cost,
+            description: `Purchased ${item.name}`,
         });
 
-        // This will trigger a re-render via the auth provider's user state update
+        // AuthProvider's onSnapshot will handle the user state update, triggering re-renders
         return true;
     } catch (error) {
         console.error("Purchase failed:", error);
@@ -340,7 +355,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     privacyWarning,
     handleTap,
     resetGame,
-    buyBoost,
+    buyItem,
     activateBoost,
     activateExtraTime,
     setIsStoreOpen,

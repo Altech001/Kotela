@@ -81,7 +81,7 @@ export default function Home() {
                     Start mining and use boosts to get a high score!
                 </p>
             </div>
-            <div className="w-full flex items-center justify-between">
+             <div className="w-full flex items-center justify-between">
                 <div className="flex items-center justify-start gap-2 text-lg font-bold text-primary px-2">
                     <Coins className="w-5 h-5 text-yellow-500"/>
                     <span className='text-lg'>{user?.ktc.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
@@ -152,18 +152,8 @@ export default function Home() {
                         <ShoppingCart className="mr-2" /> Store
                         </Button>
                     </DialogTrigger>
-                    <DialogContent className="max-w-md sm:max-w-4xl lg:max-w-6xl h-[90vh] sm:h-auto sm:max-h-[80vh]">
-                        <DialogHeader>
-                        <DialogTitle className='flex items-center gap-2'>
-                            <ShoppingCart />
-                            Boost Store
-                        </DialogTitle>
-                        </DialogHeader>
-                        <ScrollArea className="h-full -mx-6">
-                        <div className="px-6 pb-6">
-                            <Store />
-                        </div>
-                        </ScrollArea>
+                    <DialogContent className="h-[90vh] w-[95vw] max-w-4xl flex flex-col p-0">
+                        <Store />
                     </DialogContent>
                 </Dialog>
               </div>
