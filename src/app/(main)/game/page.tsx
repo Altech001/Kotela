@@ -63,30 +63,30 @@ export default function Home() {
     <div className="flex flex-col min-h-[calc(100vh-4rem)] bg-background">
       <header className="py-4">
         <div className="container mx-auto flex w-full flex-col items-start justify-between gap-4">
-            <div className="w-full">
-                 <h1 className="text-2xl font-bold tracking-tight text-primary font-headline">
-                    Mine
-                </h1>
-                <div className="flex items-center gap-2 mt-1">
-                    <MapPin className="w-4 h-4 text-muted-foreground" />
-                    {userLocation.loading ? (
-                        <Skeleton className="h-4 w-[100px]" />
-                    ) : userLocation.error ? (
-                        <p className="text-xs text-destructive">{userLocation.error}</p>
-                    ) : (
-                        <p className="text-sm text-muted-foreground">{userLocation.displayLocation}</p>
-                    )}
-                </div>
-                <p className="text-sm text-muted-foreground max-w-xs mt-2">
-                    Start mining and use boosts to get a high score!
-                </p>
+          <div className="w-full">
+            <h1 className="text-2xl font-bold tracking-tight text-primary font-headline">
+              Mine
+            </h1>
+            <div className="flex items-center gap-2 mt-1">
+              <MapPin className="w-4 h-4 text-muted-foreground" />
+              {userLocation.loading ? (
+                <Skeleton className="h-4 w-[100px]" />
+              ) : userLocation.error ? (
+                <p className="text-xs text-destructive">{userLocation.error}</p>
+              ) : (
+                <p className="text-sm text-muted-foreground">{userLocation.displayLocation}</p>
+              )}
             </div>
-             <div className="w-full flex items-center justify-between">
-                <div className="flex items-center justify-start gap-2 text-lg font-bold text-primary px-2">
-                    <Coins className="w-5 h-5 text-yellow-500"/>
-                    <span className='text-lg'>{user?.ktc.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
-                </div>
-                <div className="flex items-center gap-4">
+            <p className="text-sm text-muted-foreground max-w-xs mt-2">
+              Start mining and use boosts to get a high score!
+            </p>
+          </div>
+          <div className="w-full flex items-center justify-between">
+            <div className="flex items-center justify-start gap-2 text-lg font-bold text-primary px-2">
+                <Coins className="w-5 h-5 text-yellow-500"/>
+                <span className='text-lg'>{user?.ktc.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+            </div>
+            <div className="flex items-center gap-4">
                  <Dialog open={isBotDialogOpen} onOpenChange={setIsBotDialogOpen}>
                     <DialogTrigger asChild>
                         <Button variant="outline" size="sm">
@@ -153,7 +153,7 @@ export default function Home() {
                         </Button>
                     </DialogTrigger>
                     <DialogContent className="h-[90vh] w-[95vw] max-w-4xl flex flex-col p-0">
-                        <Store />
+                        <Store isDialog={true} />
                     </DialogContent>
                 </Dialog>
               </div>

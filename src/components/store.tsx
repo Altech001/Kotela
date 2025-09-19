@@ -32,6 +32,7 @@ import { getBoosts, getPowerups } from '@/lib/actions';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
 
 type StoreItem = Boost | Powerup;
 
@@ -66,7 +67,7 @@ const ItemCard = ({ item, onBuyClick, userPowerups }: { item: StoreItem, onBuyCl
     );
 };
 
-export function Store() {
+export function Store({ isDialog = false }: { isDialog?: boolean }) {
   const { buyItem } = useGame();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -130,70 +131,80 @@ export function Store() {
     setSelectedItem(null);
   };
 
-  return (
-    <>
-      <UIDialogHeader className="p-4 border-b">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div>
-              <UIDialogTitle className="text-2xl font-bold tracking-tight">Store</UIDialogTitle>
-              <UIDialogDescription className="text-muted-foreground text-sm">
-                  Enhance your gameplay with boosts and power-ups.
-              </UIDialogDescription>
-            </div>
-            <div className="text-left sm:text-right shrink-0">
-                <p className="text-muted-foreground text-xs">Your Balance</p>
-                <p className="font-bold text-lg">{user?.ktc.toFixed(2)} KTC</p>
-            </div>
-        </div>
-      </UIDialogHeader>
-      <Tabs defaultValue="boosts" className="flex-1 flex flex-col">
-        <TabsList className="grid w-full grid-cols-2 m-4">
+  const StoreContent = () => (
+     <Tabs defaultValue="boosts" className="flex-1 flex flex-col">
+        <TabsList className={cn("grid w-full grid-cols-2", isDialog && "m-4 mb-0")}>
             <TabsTrigger value="boosts">Boosts</TabsTrigger>
             <TabsTrigger value="powerups">Power-ups</TabsTrigger>
         </TabsList>
-        <ScrollArea className='flex-1'>
-            <div className="p-4 pt-0">
-            <TabsContent value="boosts">
-                {loading ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {Array.from({ length: 6 }).map((_, i) => (
-                        <Card key={i}>
-                        <CardHeader><Skeleton className="h-6 w-3/4" /></CardHeader>
-                        <CardContent><Skeleton className="h-4 w-full" /></CardContent>
-                        <CardFooter><Skeleton className="h-10 w-full" /></CardFooter>
-                        </Card>
-                    ))}
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {boosts.map((item) => (
-                            <ItemCard key={item.id} item={item} onBuyClick={handleBuyClick} userPowerups={userPowerups} />
-                        ))}
-                    </div>
-                )}
-            </TabsContent>
-             <TabsContent value="powerups">
-                {loading ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                     {Array.from({ length: 2 }).map((_, i) => (
-                        <Card key={i}>
-                        <CardHeader><Skeleton className="h-6 w-3/4" /></CardHeader>
-                        <CardContent><Skeleton className="h-4 w-full" /></CardContent>
-                        <CardFooter><Skeleton className="h-10 w-full" /></CardFooter>
-                        </Card>
-                    ))}
-                    </div>
-                ) : (
-                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {powerups.map((item) => (
-                           <ItemCard key={item.id} item={item} onBuyClick={handleBuyClick} userPowerups={userPowerups} />
-                        ))}
-                    </div>
-                )}
-            </TabsContent>
-            </div>
-        </ScrollArea>
+        <div className={cn(isDialog && "p-4")}>
+          <TabsContent value="boosts">
+              {loading ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                      <Card key={i}>
+                      <CardHeader><Skeleton className="h-6 w-3/4" /></CardHeader>
+                      <CardContent><Skeleton className="h-4 w-full" /></CardContent>
+                      <CardFooter><Skeleton className="h-10 w-full" /></CardFooter>
+                      </Card>
+                  ))}
+                  </div>
+              ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {boosts.map((item) => (
+                          <ItemCard key={item.id} item={item} onBuyClick={handleBuyClick} userPowerups={userPowerups} />
+                      ))}
+                  </div>
+              )}
+          </TabsContent>
+           <TabsContent value="powerups">
+              {loading ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                   {Array.from({ length: 2 }).map((_, i) => (
+                      <Card key={i}>
+                      <CardHeader><Skeleton className="h-6 w-3/4" /></CardHeader>
+                      <CardContent><Skeleton className="h-4 w-full" /></CardContent>
+                      <CardFooter><Skeleton className="h-10 w-full" /></CardFooter>
+                      </Card>
+                  ))}
+                  </div>
+              ) : (
+                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {powerups.map((item) => (
+                         <ItemCard key={item.id} item={item} onBuyClick={handleBuyClick} userPowerups={userPowerups} />
+                      ))}
+                  </div>
+              )}
+          </TabsContent>
+        </div>
       </Tabs>
+  );
+
+  return (
+    <>
+      {isDialog ? (
+         <>
+          <UIDialogHeader className="p-4 border-b">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                  <UIDialogTitle className="text-2xl font-bold tracking-tight">Store</UIDialogTitle>
+                  <UIDialogDescription className="text-muted-foreground text-sm">
+                      Enhance your gameplay with boosts and power-ups.
+                  </UIDialogDescription>
+                </div>
+                <div className="text-left sm:text-right shrink-0">
+                    <p className="text-muted-foreground text-xs">Your Balance</p>
+                    <p className="font-bold text-lg">{user?.ktc.toFixed(2)} KTC</p>
+                </div>
+            </div>
+          </UIDialogHeader>
+          <ScrollArea className='flex-1'>
+            <StoreContent />
+          </ScrollArea>
+        </>
+      ) : (
+        <StoreContent />
+      )}
       
       <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
         <AlertDialogContent>
