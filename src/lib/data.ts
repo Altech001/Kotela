@@ -1,4 +1,4 @@
-import type { Boost, LeaderboardEntry, NewsItem } from './types';
+import type { Boost, LeaderboardEntry } from './types';
 
 export const storeItems: Boost[] = [
   {
@@ -43,34 +43,4 @@ export const leaderboardData: LeaderboardEntry[] = [
   { rank: 5, name: 'You', score: 8500, avatarUrl: 'https://picsum.photos/seed/you/40/40' },
   { rank: 6, name: 'BitMiner', score: 7900, avatarUrl: 'https://picsum.photos/seed/user6/40/40' },
   { rank: 7, name: 'TokenTapper', score: 7650, avatarUrl: 'https://picsum.photos/seed/user7/40/40' },
-];
-
-export const newsData: NewsItem[] = [
-  {
-    id: '1',
-    title: 'Welcome to Kotela!',
-    content: 'The new era of tap-to-earn gaming has begun. Start tapping to mine your first Kotela Coins (KTC) and climb the leaderboards!',
-    timestamp: '2024-07-29T10:00:00Z',
-    author: 'The Kotela Team',
-    imageUrl: 'https://picsum.photos/seed/news1/600/400',
-    imageHint: 'celebration confetti'
-  },
-  {
-    id: '2',
-    title: 'New Mining Bots in Store',
-    content: 'Boost your offline earnings with our new Mining Bots! Head to the store now to check them out and start earning KTC while you sleep.',
-    timestamp: '2024-07-28T15:30:00Z',
-    author: 'Dev Team',
-    imageUrl: 'https://picsum.photos/seed/news2/600/400',
-    imageHint: 'robot technology'
-  },
-  {
-    id: '3',
-    title: 'Community Highlight: Top Tappers',
-    content: 'A huge shoutout to our top players this week! CryptoKing is leading the charge with an incredible score. Can you catch up?',
-    timestamp: '2024-07-27T12:00:00Z',
-    author: 'Community Manager',
-    imageUrl: 'https://picsum.photos/seed/news3/600/400',
-    imageHint: 'trophy award'
-  },
 ];
