@@ -1,12 +1,15 @@
+
 "use client";
 
-import { createContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { createContext, useState, useEffect, useCallback, ReactNode, useMemo } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { storeItems } from '@/lib/data';
 import type { Boost as BoostType } from '@/lib/types';
 import { runPrivacyAnalysis } from '@/lib/actions';
 
 export type GameStatus = "idle" | "playing" | "ended";
+export type ActiveBoostEffect = 'scoreMultiplier' | 'timeFreeze' | 'frenzy' | null;
+
 
 const BASE_GAME_DURATION = 30;
 
@@ -39,6 +42,16 @@ interface GameContextType {
 
   setIsStoreOpen: (isOpen: boolean) => void;
   setIsModalOpen: (isOpen: boolean) => void;
+  
+  // New properties for the modern game engine
+  timeLeft: number;
+  gameState: GameStatus;
+  activeBoost: 'rocket' | 'missile' | null;
+  activeEffect: ActiveBoostEffect;
+  boostTimeLeft: number;
+  scoreIncrement: number;
+  activateEffectBoost: (boostType: 'freezeTime' | 'frenzy') => void;
+  activateInstantBoost: (boostType: 'scoreBomb') => void;
 }
 
 export const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -49,7 +62,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [score, setScore] = useState(0);
   const [gameDuration, setGameDuration] = useState(BASE_GAME_DURATION);
   const [timer, setTimer] = useState(gameDuration);
-  const [gameStatus, setGameStatus] = useState<GameStatus>('idle');
+  const [gameState, setGameState] = useState<GameStatus>('idle');
   
   const [isStoreOpen, setIsStoreOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -58,6 +71,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [activeBoosts, setActiveBoosts] = useState<Record<string, ActiveBoost>>({});
   const [timeBoostUsed, setTimeBoostUsed] = useState(false);
   
+  const [activeBoost, setActiveBoost] = useState<'rocket' | 'missile' | null>(null);
+  const [activeEffect, setActiveEffect] = useState<ActiveBoostEffect>(null);
+  const [boostTimeLeft, setBoostTimeLeft] = useState(0);
+
+
   const hasMiningBot = user?.boosts.some((b) => b.boostId === 'bot-1' && b.quantity > 0);
 
   const inventory = useMemo(() => {
@@ -69,29 +87,40 @@ export function GameProvider({ children }: { children: ReactNode }) {
       return acc;
     }, {} as Record<string, number>) || {};
   }, [user?.boosts]);
+  
+  const scoreIncrement = useMemo(() => {
+    let increment = 1;
+    if (activeBoost === 'rocket') increment = 2;
+    if (activeBoost === 'missile') increment = 3;
+    if (activeEffect === 'frenzy') increment *= 10;
+    return increment;
+  }, [activeBoost, activeEffect]);
 
   const handleTap = useCallback(() => {
-    if (gameStatus === "idle") {
-      setGameStatus("playing");
+    if (gameState === "idle") {
+      setGameState("playing");
     }
-     if (gameStatus !== 'playing') return;
+     if (gameState !== 'playing') return;
     const multiplier = activeBoosts['score_multiplier']?.value || 1;
     setScore((prev) => prev + 1 * multiplier);
-  }, [gameStatus, activeBoosts]);
+  }, [gameState, activeBoosts]);
 
   const resetGame = useCallback(() => {
     setScore(0);
     setGameDuration(BASE_GAME_DURATION);
     setTimer(BASE_GAME_DURATION);
-    setGameStatus("idle");
+    setGameState("idle");
     setPrivacyWarning(null);
     setActiveBoosts({});
+    setActiveBoost(null);
+    setActiveEffect(null);
+    setBoostTimeLeft(0);
     setTimeBoostUsed(false);
   }, []);
 
   const endGame = useCallback(async () => {
-    if (gameStatus !== 'playing') return;
-    setGameStatus("ended");
+    if (gameState !== 'playing') return;
+    setGameState("ended");
     
     if (user && score > 0) {
       const newKtc = user.ktc + score;
@@ -113,60 +142,50 @@ export function GameProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error("Privacy analysis failed:", error);
     }
-  }, [gameStatus, score, user, updateUser, addTransaction]);
+  }, [gameState, score, user, updateUser, addTransaction]);
 
   // Main game timer
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (gameStatus === 'playing' && timer > 0) {
-       const isFrozen = activeBoosts['time_freeze'];
+    if (gameState === 'playing' && timer > 0) {
+       const isFrozen = activeEffect === 'timeFreeze';
        if (!isFrozen) {
            interval = setInterval(() => {
                 setTimer((prev) => Math.max(0, prev - 1));
             }, 1000);
        }
-    } else if (gameStatus === 'playing' && timer === 0) {
+    } else if (gameState === 'playing' && timer === 0) {
       endGame();
     }
     return () => clearInterval(interval);
-  }, [timer, gameStatus, endGame, activeBoosts]);
+  }, [timer, gameState, endGame, activeEffect]);
 
   // Boosts timer
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (gameStatus === 'playing' && Object.keys(activeBoosts).length > 0) {
+    if (gameState === 'playing' && activeEffect && boostTimeLeft > 0) {
         interval = setInterval(() => {
-            setActiveBoosts(prevBoosts => {
-                const newBoosts = {...prevBoosts};
-                let changed = false;
-                for (const key in newBoosts) {
-                    if (newBoosts[key].timeLeft > 1) {
-                        newBoosts[key].timeLeft -= 1;
-                        changed = true;
-                    } else {
-                        delete newBoosts[key];
-                        changed = true;
-                    }
-                }
-                return changed ? newBoosts : prevBoosts;
-            });
+            setBoostTimeLeft(prev => prev - 1);
         }, 1000);
+    } else if (activeEffect && boostTimeLeft <= 0) {
+      setActiveBoost(null);
+      setActiveEffect(null);
     }
     return () => clearInterval(interval);
-  }, [gameStatus, activeBoosts]);
+  }, [gameState, activeEffect, boostTimeLeft]);
   
   // Auto-tapping for mining bot & frenzy
   useEffect(() => {
     let autoTapInterval: NodeJS.Timeout;
-     const isFrenzy = activeBoosts['frenzy'];
+     const isFrenzy = activeEffect === 'frenzy';
 
-    if (gameStatus === 'playing' && (hasMiningBot || isFrenzy)) {
+    if (gameState === 'playing' && (hasMiningBot || isFrenzy)) {
       autoTapInterval = setInterval(() => {
         handleTap();
       }, isFrenzy ? 100 : 1000); 
     }
     return () => clearInterval(autoTapInterval);
-  }, [gameStatus, hasMiningBot, activeBoosts, handleTap]);
+  }, [gameState, hasMiningBot, activeEffect, handleTap]);
 
   const useBoost = (boostId: string): boolean => {
     if (!user) return false;
@@ -183,25 +202,34 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return false;
   };
   
-  const activateBoost = (boostId: string) => {
-    if (gameStatus === 'playing' && useBoost(boostId)) {
-        const boostInfo = storeItems.find(b => b.id === boostId);
-        if (boostInfo) {
-            setActiveBoosts(prev => ({
-                ...prev,
-                [boostInfo.type]: {
-                    id: boostInfo.id,
-                    type: boostInfo.type,
-                    value: boostInfo.value,
-                    timeLeft: 5, // All boosts last 5 seconds for now
-                }
-            }));
-        }
+  const activateBoostModern = (boostType: 'rocket' | 'missile') => {
+    const boostId = storeItems.find(i => i.type === 'score_multiplier' && (i.name.toLowerCase().includes(boostType)))?.id
+    if (gameState === 'playing' && !activeEffect && boostId && useBoost(boostId)) {
+      setActiveBoost(boostType);
+      setActiveEffect('scoreMultiplier');
+      setBoostTimeLeft(boostType === 'rocket' ? 5 : 3);
+    }
+  }
+
+  const activateEffectBoost = (boostType: 'freezeTime' | 'frenzy') => {
+    const boostId = storeItems.find(i => i.type === (boostType === 'freezeTime' ? 'time_freeze' : 'score_multiplier'))?.id
+     if (gameState === 'playing' && !activeEffect && boostId && useBoost(boostId)) {
+      setActiveEffect(boostType);
+      setBoostTimeLeft(boostType === 'freezeTime' ? 5 : 3);
+    }
+  };
+  
+  const activateInstantBoost = (boostType: 'scoreBomb') => {
+     const boostId = storeItems.find(i => i.name.toLowerCase().includes('bomb'))?.id
+     if (gameState === 'playing' && boostId && useBoost(boostId)) {
+      if (boostType === 'scoreBomb') {
+        setScore(s => s + 10);
+      }
     }
   };
 
   const activateTimeBoost = (boostId: string) => {
-    if (gameStatus === 'idle' && !timeBoostUsed && useBoost(boostId)) {
+    if (gameState === 'idle' && !timeBoostUsed && useBoost(boostId)) {
       const boostInfo = storeItems.find(b => b.id === boostId);
        if (boostInfo) {
           const newDuration = BASE_GAME_DURATION + boostInfo.value;
@@ -247,11 +275,29 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return false;
 }, [user, updateUser, addTransaction]);
 
+// Legacy activateBoost, needs to be kept for old game engine logic if it's still used somewhere
+ const activateBoost = (boostId: string) => {
+    if (gameState === 'playing' && useBoost(boostId)) {
+        const boostInfo = storeItems.find(b => b.id === boostId);
+        if (boostInfo) {
+            setActiveBoosts(prev => ({
+                ...prev,
+                [boostInfo.type]: {
+                    id: boostInfo.id,
+                    type: boostInfo.type,
+                    value: boostInfo.value,
+                    timeLeft: 5, // All boosts last 5 seconds for now
+                }
+            }));
+        }
+    }
+  };
 
-  const value = {
+
+  const value: GameContextType = {
     score,
     timer,
-    gameStatus,
+    gameStatus: gameState,
     isStoreOpen,
     isModalOpen,
     privacyWarning,
@@ -268,6 +314,16 @@ export function GameProvider({ children }: { children: ReactNode }) {
     activateFrenzy,
     setIsStoreOpen,
     setIsModalOpen,
+    // new props
+    timeLeft: timer,
+    gameState,
+    activeBoost,
+    activeEffect,
+    boostTimeLeft,
+    scoreIncrement,
+    activateEffectBoost,
+    activateInstantBoost,
+    activateBoost: activateBoostModern,
   };
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
