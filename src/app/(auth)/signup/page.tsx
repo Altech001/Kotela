@@ -1,15 +1,6 @@
-
 'use client';
 
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/hooks/use-auth';
@@ -18,6 +9,14 @@ import { useRouter } from 'next/navigation';
 import { useState, FormEvent, useEffect } from 'react';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 
 export default function SignupPage() {
   const [name, setName] = useState('');
@@ -37,7 +36,6 @@ export default function SignupPage() {
     }
   }, [user, router]);
 
-
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (password !== confirmPassword) {
@@ -55,7 +53,7 @@ export default function SignupPage() {
         referralCode: referral,
       });
     } catch (error: any) {
-       toast({
+      toast({
         title: 'Sign Up Failed',
         description: error.message,
         variant: 'destructive',
@@ -68,7 +66,7 @@ export default function SignupPage() {
       <CardHeader className="text-left">
         <CardTitle className="text-2xl font-bold">Sign Up</CardTitle>
         <CardDescription>
-            Enter your information to create an account
+          Enter your information to create an account
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
@@ -97,7 +95,7 @@ export default function SignupPage() {
               />
             </div>
           </div>
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
               <div className="relative">
@@ -109,19 +107,19 @@ export default function SignupPage() {
                   onChange={(e) => setPassword(e.target.value)}
                 />
                 <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="absolute inset-y-0 right-0 h-full px-3"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? <EyeOff /> : <Eye />}
-                  </Button>
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute inset-y-0 right-0 h-full px-3"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? <EyeOff /> : <Eye />}
+                </Button>
               </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="confirm-password">Confirm Password</Label>
-               <div className="relative">
+              <div className="relative">
                 <Input
                   id="confirm-password"
                   type={showConfirmPassword ? 'text' : 'password'}
@@ -129,26 +127,26 @@ export default function SignupPage() {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                 />
-                 <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="absolute inset-y-0 right-0 h-full px-3"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  >
-                    {showConfirmPassword ? <EyeOff /> : <Eye />}
-                  </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute inset-y-0 right-0 h-full px-3"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                >
+                  {showConfirmPassword ? <EyeOff /> : <Eye />}
+                </Button>
               </div>
             </div>
           </div>
           <div className="space-y-2">
-              <Label htmlFor="referral">Referral Code (Optional)</Label>
-              <Input
-                id="referral"
-                placeholder="KOTELA-..."
-                value={referral}
-                onChange={(e) => setReferral(e.target.value)}
-              />
+            <Label htmlFor="referral">Referral Code (Optional)</Label>
+            <Input
+              id="referral"
+              placeholder="KOTELA-..."
+              value={referral}
+              onChange={(e) => setReferral(e.target.value)}
+            />
           </div>
         </CardContent>
         <CardFooter className="flex flex-col gap-4">
@@ -156,12 +154,12 @@ export default function SignupPage() {
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Create an account
           </Button>
-          <p className="text-xs text-center text-muted-foreground">
+          <div className="mt-4 text-center text-sm">
             Already have an account?{' '}
             <Link href="/login" className="underline">
               Sign in
             </Link>
-          </p>
+          </div>
         </CardFooter>
       </form>
     </Card>
