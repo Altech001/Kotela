@@ -6,12 +6,13 @@ import { useAuth } from '@/hooks/use-auth';
 import type { Boost as BoostType, UserBoost, GameSession } from '@/lib/types';
 import { runPrivacyAnalysis, getBoosts, getBoost } from '@/lib/actions';
 import { db } from '@/lib/firebase';
-import { doc, setDoc, getDoc, updateDoc, deleteDoc, onSnapshot, serverTimestamp, runTransaction } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, deleteDoc, onSnapshot, runTransaction } from 'firebase/firestore';
 
 
 export type GameStatus = "idle" | "playing" | "ended";
 
 const BASE_GAME_DURATION = 30 * 1000; // 30 seconds in ms
+const BASE_MINING_RATE = 0.5; // KTC per second
 
 export interface GameContextType {
   session: GameSession | null;
@@ -72,8 +73,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const unsubscribe = onSnapshot(sessionRef, (doc) => {
       if (doc.exists()) {
         const sessionData = doc.data() as GameSession;
-        if (sessionData.status === 'playing' && Date.now() > sessionData.expectedEndTime) {
-          // If session is stale, end it.
+        if (sessionData.status === 'playing' && Date.now() >= sessionData.expectedEndTime) {
           endGame(sessionData);
         } else {
           setSession(sessionData);
@@ -88,30 +88,55 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, [user]);
 
-  // Game timer effect
+  // Game timer & automatic mining effect
   useEffect(() => {
     let interval: NodeJS.Timeout | undefined;
-    if (gameStatus === 'playing' && session) {
-      const tick = () => {
-        const now = Date.now();
-        let expectedEndTime = session.expectedEndTime;
 
-        // Adjust for active time freeze boost
-        if (session.activeBoost && session.activeBoost.type === 'time_freeze' && now < session.activeBoost.endTime) {
-           // We don't need to do anything, the main loop will handle the freeze.
+    if (gameStatus === 'playing' && session) {
+      const tick = async () => {
+        const now = Date.now();
+        let currentSession = session;
+
+        // Fetch latest session data to avoid race conditions
+        if(user) {
+            const sessionRef = doc(db, 'gameSessions', user.id);
+            const docSnap = await getDoc(sessionRef);
+            if(docSnap.exists()) {
+                currentSession = docSnap.data() as GameSession;
+            } else {
+                return; // Session ended elsewhere
+            }
         }
         
-        if (now >= expectedEndTime) {
-          endGame(session);
-        } else {
-          // Force a re-render to update timers
-           setSession(s => s ? {...s} : null);
+        if (now >= currentSession.expectedEndTime) {
+          endGame(currentSession);
+          return;
         }
+
+        // Automatic Mining Logic
+        let currentRate = BASE_MINING_RATE;
+        if (currentSession.activeBoost && currentSession.activeBoost.type === 'score_multiplier' && now < currentSession.activeBoost.endTime) {
+            currentRate *= currentSession.activeBoost.value;
+        }
+
+        const scoreToAdd = currentRate * 1; // Since tick is every 1 second
+
+        const newScore = (currentSession.score || 0) + scoreToAdd;
+        
+        // This is a simplified update. For high-frequency updates, Cloud Functions would be better.
+        if (user) {
+            const sessionRef = doc(db, 'gameSessions', user.id);
+            await updateDoc(sessionRef, { score: newScore });
+        }
+        
+        // Force a re-render to update timers on the UI
+        setSession(s => s ? {...s, score: newScore} : null);
       };
+      
       interval = setInterval(tick, 1000);
     }
     return () => clearInterval(interval);
-  }, [gameStatus, session]);
+  }, [gameStatus, session, user]);
 
 
   const startGame = async () => {
@@ -136,11 +161,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (!user || finalSession.status !== 'playing') return;
 
     const finalScore = finalSession.score;
-    // Mark as ended locally to stop timers
     setGameStatus('ended');
     setSession(s => s ? {...s, status: 'ended'} : null);
 
-    // Delete the session from Firestore
     const sessionRef = doc(db, 'gameSessions', user.id);
     await deleteDoc(sessionRef);
 
@@ -157,8 +180,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const gameData = JSON.stringify({ finalScore: finalScore, endTime: new Date().toISOString() });
     try {
       const result = await runPrivacyAnalysis(gameData);
-      if (result.analysisResult.includes("risk")) {
-        setPrivacyWarning(result.analysisResult + " " + result.recommendations);
+      if (result.analysisResult.toLowerCase().includes("risk")) {
+        setPrivacyWarning(result.analysisResult);
         setIsModalOpen(true);
       }
     } catch (error) {
@@ -170,27 +193,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const handleTap = useCallback(async () => {
     if (gameStatus === 'idle') {
       await startGame();
-      return;
     }
-
-    if (gameStatus !== 'playing' || !user || !session) return;
-    
-    const sessionRef = doc(db, 'gameSessions', user.id);
-
-    const now = Date.now();
-    const activeBoost = session.activeBoost;
-    let multiplier = 1;
-
-    if (activeBoost && activeBoost.type === 'score_multiplier' && now < activeBoost.endTime) {
-        multiplier = activeBoost.value;
-    }
-
-    const newScore = session.score + (1 * multiplier);
-
-    // This is a simplified update. For high-frequency updates, Cloud Functions would be better.
-    await updateDoc(sessionRef, { score: newScore });
-
-  }, [gameStatus, user, session]);
+  }, [gameStatus, user]);
 
   const resetGame = async () => {
     if(!user) return;
@@ -236,12 +240,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
             description: `Purchased ${boost.name}`,
         });
 
-        // Optimistically update local state
-        const newLocalInv = { ...localInventory };
         const boostInfo = await getBoost(boost.id);
         if (boostInfo) {
-          newLocalInv[boostInfo.type] = (newLocalInv[boostInfo.type] || 0) + 1;
-          setLocalInventory(newLocalInv);
+            setLocalInventory(prev => ({
+                ...prev,
+                [boostInfo.type]: (prev[boostInfo.type] || 0) + 1,
+            }));
         }
 
         return true;
@@ -249,7 +253,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         console.error("Purchase failed:", error);
         return false;
     }
-  }, [user, localInventory, addTransaction]);
+  }, [user, addTransaction]);
 
  const useBoost = async (boostId: string) => {
     if (!user) return false;
