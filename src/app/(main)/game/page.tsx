@@ -32,6 +32,9 @@ export default function GamePage() {
   const [isAnalysisLoading, setIsAnalysisLoading] = useState(false);
 
   const handleTap = () => {
+    if (gameStatus === 'idle') {
+      startGame();
+    }
     const now = Date.now();
     if (now - lastTapTime < 50) return; // Debounce taps
 
@@ -60,8 +63,9 @@ export default function GamePage() {
       setAnalysis(null);
       // This will set the game status back to idle
       if (gameStatus === 'ended') {
-        startGame();
-        endGame();
+        endGame(); // Ends the game officially
+        startGame(); // Immediately sets it back to idle, ready for a new game
+        endGame(); // a bit of a hack to reset the state back to idle
       }
   };
 
@@ -83,7 +87,7 @@ export default function GamePage() {
         animate={controls}
         className="relative cursor-pointer"
         onClick={handleTap}
-        style={{ pointerEvents: gameStatus === 'playing' ? 'auto' : 'none' }}
+        style={{ pointerEvents: gameStatus === 'playing' || gameStatus === 'idle' ? 'auto' : 'none' }}
       >
         {coinPlaceholder && (
           <Image
@@ -100,7 +104,7 @@ export default function GamePage() {
 
       {gameStatus !== 'playing' && (
         <Button onClick={startGame} size="lg" className="text-lg">
-          Start Game
+           {gameStatus === 'ended' ? 'Play Again' : 'Start Game'}
         </Button>
       )}
 
@@ -129,7 +133,7 @@ export default function GamePage() {
             )}
           </div>
           <AlertDialogFooter>
-            <AlertDialogAction onClick={handleDialogClose}>Continue</AlertDialogAction>
+            <AlertDialogAction onClick={handleDialogClose}>Play Again</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

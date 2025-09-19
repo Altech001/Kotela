@@ -1,10 +1,9 @@
-"use client";
+'use client';
 
 import { useEffect, useState } from 'react';
 import { GameEngine } from '@/components/game-engine';
 import { Leaderboard } from '@/components/leaderboard';
 import { Store } from '@/components/store';
-import type { UserBoost } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
 import { Bot, Github, ShoppingCart, Rocket, Bomb, Clock, Zap, Gift, Snowflake, Coins, MapPin, TrendingUp, BarChart, ArrowDownUp, Repeat, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -29,7 +28,7 @@ import { storeItems } from '@/lib/data';
 
 export default function Home() {
   const { user } = useAuth();
-  const { score, gameStatus, isStoreOpen, setIsStoreOpen } = useGame();
+  const { isStoreOpen, setIsStoreOpen } = useGame();
   const [isBotDialogOpen, setIsBotDialogOpen] = useState(false);
   const [isKycDialogOpen, setIsKycDialogOpen] = useState(false);
   const userLocation = useUserLocation();
@@ -43,7 +42,13 @@ export default function Home() {
   
   const handleBotClick = () => {
     setIsBotDialogOpen(false);
-    setIsKycDialogOpen(true);
+    // Open KYC dialog only if user is not verified
+    if (!user?.isKycVerified) {
+      setIsKycDialogOpen(true);
+    } else {
+      // In a real app, you would navigate to the bot trading interface
+      alert("Trading bots are available for verified users. This is a placeholder.");
+    }
   }
 
   const inventory = user?.boosts.reduce((acc, boost) => {
@@ -179,8 +184,8 @@ export default function Home() {
                     <p className="text-xs text-muted-foreground mb-3">Activate these power-ups during a game by clicking the buttons below the mining coin.</p>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                         <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
-                            <Rocket className="w-4 h-4 text-yellow-500"/>
-                            <span className="font-bold text-xs">Rocket x {inventory.score_multiplier || 0}</span>
+                            <Zap className="w-4 h-4 text-yellow-500"/>
+                            <span className="font-bold text-xs">Multiplier x {inventory.score_multiplier || 0}</span>
                         </div>
                         <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
                             <Clock className="w-4 h-4 text-blue-500"/>

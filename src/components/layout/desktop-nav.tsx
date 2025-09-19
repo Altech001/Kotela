@@ -9,7 +9,7 @@ import { useGame } from "@/hooks/use-game"
 
 const navItems = [
   { href: "/game", label: "Mine", icon: Pickaxe },
-  { href: "/leaderboard", label: "Bonus", icon: Gift },
+  { href: "/leaderboard", label: "Leaderboard", icon: TrendingUp },
   { href: "/store", label: "Store", icon: Coins },
   { href: "/news", label: "News", icon: Newspaper },
   { href: "/profile", label: "Profile", icon: User },
