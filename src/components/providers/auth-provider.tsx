@@ -78,7 +78,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const batch = writeBatch(db);
 
       // Handle referral bonus
-      if (extraData.referralCode) {
+      if (extraData.referralCode && extraData.referralCode.trim() !== '') {
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('referralCode', '==', extraData.referralCode));
         const querySnapshot = await getDocs(q);
