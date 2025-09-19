@@ -17,12 +17,15 @@ import { useRouter } from 'next/navigation';
 import { useState, FormEvent, useEffect } from 'react';
 import { KotelaIcon } from '@/components/icons';
 import { Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 export default function SignupPage() {
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [referral, setReferral] = useState('');
-  const { login, user, loading } = useAuth(); // Using login as a mock for signup
+  const { signup, user, loading } = useAuth();
   const router = useRouter();
+  const { toast } = useToast();
 
   useEffect(() => {
     if (user) {
@@ -31,10 +34,18 @@ export default function SignupPage() {
   }, [user, router]);
 
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    console.log('Signing up with referral code:', referral);
-    login(email);
+    try {
+      console.log('Signing up with referral code:', referral);
+      await signup(email, password);
+    } catch (error: any) {
+       toast({
+        title: 'Sign Up Failed',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
   };
 
   return (
@@ -55,6 +66,16 @@ export default function SignupPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+           <div className="space-y-2">
+            <Label htmlFor="password">Password</Label>
+            <Input
+              id="password"
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
             />
           </div>
           <div className="space-y-2">
