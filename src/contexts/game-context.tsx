@@ -1,12 +1,12 @@
 
 "use client";
 
-import { createContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
+import { createContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import type { Boost as BoostType, UserBoost, GameSession } from '@/lib/types';
 import { runPrivacyAnalysis, getBoosts, getBoost } from '@/lib/actions';
 import { db } from '@/lib/firebase';
-import { doc, setDoc, getDoc, updateDoc, deleteDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, deleteDoc, onSnapshot, serverTimestamp, runTransaction } from 'firebase/firestore';
 
 
 export type GameStatus = "idle" | "playing" | "ended";
