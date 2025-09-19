@@ -21,6 +21,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { DialogHeader as UIDialogHeader, DialogTitle as UIDialogTitle, DialogDescription as UIDialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useGame } from '@/hooks/use-game';
 import { Bot, Clock, Zap, Snowflake, Gem } from 'lucide-react';
@@ -131,20 +132,20 @@ export function Store() {
 
   return (
     <>
-      <div className="p-4 border-b">
-        <div className="mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <UIDialogHeader className="p-4 border-b">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
-            <h1 className="text-2xl font-bold tracking-tight">Store</h1>
-            <p className="text-muted-foreground text-sm">
-                Enhance your gameplay with boosts and power-ups.
-            </p>
+              <UIDialogTitle className="text-2xl font-bold tracking-tight">Store</UIDialogTitle>
+              <UIDialogDescription className="text-muted-foreground text-sm">
+                  Enhance your gameplay with boosts and power-ups.
+              </UIDialogDescription>
             </div>
             <div className="text-left sm:text-right shrink-0">
                 <p className="text-muted-foreground text-xs">Your Balance</p>
                 <p className="font-bold text-lg">{user?.ktc.toFixed(2)} KTC</p>
             </div>
         </div>
-      </div>
+      </UIDialogHeader>
       <Tabs defaultValue="boosts" className="flex-1 flex flex-col">
         <TabsList className="grid w-full grid-cols-2 m-4">
             <TabsTrigger value="boosts">Boosts</TabsTrigger>
