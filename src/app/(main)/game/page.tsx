@@ -28,7 +28,7 @@ import { storeItems } from '@/lib/data';
 
 export default function Home() {
   const { user } = useAuth();
-  const { isStoreOpen, setIsStoreOpen } = useGame();
+  const { isStoreOpen, setIsStoreOpen, inventory } = useGame();
   const [isBotDialogOpen, setIsBotDialogOpen] = useState(false);
   const [isKycDialogOpen, setIsKycDialogOpen] = useState(false);
   const userLocation = useUserLocation();
@@ -50,15 +50,6 @@ export default function Home() {
       alert("Trading bots are available for verified users. This is a placeholder.");
     }
   }
-
-  const inventory = user?.boosts.reduce((acc, boost) => {
-    const item = storeItems.find(item => item.id === boost.boostId);
-    if(item) {
-        acc[item.type] = (acc[item.type] || 0) + boost.quantity;
-    }
-    return acc;
-  }, {} as Record<string, number>) || {};
-
 
   return (
     <div className="flex flex-col min-h-[calc(100vh-4rem)] bg-background">
