@@ -19,7 +19,7 @@ interface ActiveBoost {
   timeLeft: number;
 }
 
-interface GameContextType {
+export interface GameContextType {
   score: number;
   timer: number;
   gameStatus: GameStatus;
