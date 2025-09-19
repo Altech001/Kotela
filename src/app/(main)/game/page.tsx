@@ -52,7 +52,7 @@ export default function Home() {
     }
   }
   
-  const inventoryIcons = {
+  const inventoryIcons: { [key: string]: React.ElementType } = {
       score_multiplier: Zap,
       extra_time: Clock,
       time_freeze: Snowflake,
@@ -78,11 +78,11 @@ export default function Home() {
                     )}
                 </div>
                 <p className="text-sm text-muted-foreground max-w-xs mt-2">
-                    Tap to start mining. Use boosts to get a high score!
+                    Start mining and use boosts to get a high score!
                 </p>
             </div>
             <div className="w-full flex items-center justify-between">
-                <div className="flex items-center justify-end gap-2 text-lg font-bold text-primary px-2">
+                <div className="flex items-center justify-start gap-2 text-lg font-bold text-primary px-2">
                     <Coins className="w-5 h-5 text-yellow-500"/>
                     <span className='text-lg'>{user?.ktc.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                 </div>
@@ -132,7 +132,7 @@ export default function Home() {
                                 Verification Required
                             </DialogTitle>
                             <DialogDescription className="text-sm">
-                                You must complete KYC verification to use trading bots.
+                                Complete KYC to use trading bots.
                             </DialogDescription>
                         </DialogHeader>
                         <DialogFooter>
@@ -152,7 +152,7 @@ export default function Home() {
                         <ShoppingCart className="mr-2" /> Store
                         </Button>
                     </DialogTrigger>
-                    <DialogContent className="max-w-md sm:max-w-4xl lg:max-w-6xl h-full sm:h-auto sm:max-h-[800px]">
+                    <DialogContent className="max-w-md sm:max-w-4xl lg:max-w-6xl h-[90vh] sm:h-auto sm:max-h-[80vh]">
                         <DialogHeader>
                         <DialogTitle className='flex items-center gap-2'>
                             <ShoppingCart />

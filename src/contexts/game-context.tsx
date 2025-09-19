@@ -25,6 +25,7 @@ export interface GameContextType {
   resetGame: () => Promise<void>;
   buyBoost: (boost: BoostType) => Promise<boolean>;
   activateBoost: (boostId: string) => Promise<void>;
+  activateExtraTime: (boostId: string) => Promise<void>;
 
   setIsStoreOpen: (isOpen: boolean) => void;
   setIsModalOpen: (isOpen: boolean) => void;
@@ -132,16 +133,17 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }, [gameStatus, session, user]);
 
 
-  const startGame = async () => {
+  const startGame = async (extraDuration = 0) => {
     if (!user || gameStatus !== 'idle') return;
 
     const startTime = Date.now();
+    const totalDuration = BASE_GAME_DURATION + (extraDuration * 1000);
     const newSession: GameSession = {
       userId: user.id,
       score: 0,
       startTime: startTime,
-      expectedEndTime: startTime + BASE_GAME_DURATION,
-      duration: BASE_GAME_DURATION / 1000,
+      expectedEndTime: startTime + totalDuration,
+      duration: totalDuration / 1000,
       status: 'playing',
       activeBoost: null,
     };
@@ -267,24 +269,39 @@ export function GameProvider({ children }: { children: ReactNode }) {
         return false;
     }
  };
+ 
+ const activateExtraTime = async (boostId: string) => {
+    if (gameStatus !== 'idle' || !user) return;
+    
+    const boostInfo = await getBoost(boostId);
+    if (!boostInfo || boostInfo.type !== 'extra_time') return;
+    
+    const hasBoost = user.boosts.some(b => b.boostId === boostId && b.quantity > 0);
+    if (!hasBoost) return;
+    
+    const consumed = await useBoost(boostId);
+    if(consumed) {
+        await startGame(boostInfo.value);
+    }
+ }
 
  const activateBoost = async (boostId: string) => {
     if (gameStatus !== 'playing' || !user || !session || session.activeBoost) return;
 
-    // The user's boosts are on user.boosts. We need the static boost info from `getBoost`
     const boostInfo = await getBoost(boostId);
     if (!boostInfo) {
       console.error("Boost details not found");
       return;
     }
     
-    // Check if user has it and then consume it
     const hasBoost = user.boosts.some(b => b.boostId === boostId && b.quantity > 0);
     if (!hasBoost) {
       console.error("User does not have this boost");
       return;
     }
-    await useBoost(boostId);
+    
+    const consumed = await useBoost(boostId);
+    if (!consumed) return;
     
     const sessionRef = doc(db, 'gameSessions', user.id);
     const now = Date.now();
@@ -325,6 +342,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     resetGame,
     buyBoost,
     activateBoost,
+    activateExtraTime,
     setIsStoreOpen,
     setIsModalOpen,
   };

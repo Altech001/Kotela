@@ -23,18 +23,19 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useGame } from '@/hooks/use-game';
-import { Bot, Clock, ShieldPlus, Zap } from 'lucide-react';
+import { Bot, Clock, Zap } from 'lucide-react';
 import type { Boost } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
 import { Badge } from '@/components/ui/badge';
 import { getBoosts } from '@/lib/actions';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Snowflake } from 'lucide-react';
 
-const iconMap = {
+const iconMap: { [key: string]: React.ElementType } = {
   mining_bot: Bot,
   score_multiplier: Zap,
-  extra_time: ShieldPlus,
-  time_freeze: Clock,
+  extra_time: Clock,
+  time_freeze: Snowflake,
 };
 
 export function Store() {
@@ -92,21 +93,21 @@ export function Store() {
 
   return (
     <>
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Store</h1>
           <p className="text-muted-foreground">
             Enhance your gameplay with boosts.
           </p>
         </div>
-        <div className="text-right">
+        <div className="text-left sm:text-right">
             <p className="text-muted-foreground text-sm">Your Balance</p>
             <p className="font-bold text-xl">{user?.ktc.toFixed(2)} KTC</p>
         </div>
       </div>
       {loading ? (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
             <Card key={i}>
               <CardHeader><Skeleton className="h-6 w-3/4" /></CardHeader>
               <CardContent><Skeleton className="h-4 w-full" /></CardContent>
@@ -115,7 +116,7 @@ export function Store() {
           ))}
         </div>
       ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {storeItems.map((item) => {
             const Icon = iconMap[item.type];
             const isSoldOut = item.status === 'sold';

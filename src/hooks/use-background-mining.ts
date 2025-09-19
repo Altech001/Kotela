@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useRef } from 'react';
@@ -10,66 +11,83 @@ const KTC_PER_HOUR = 1;
 export function useBackgroundMining() {
   const { user, updateUser, addTransaction } = useAuth();
   const { toast } = useToast();
-  const startTimeRef = useRef<number | null>(null);
+  const processedRef = useRef(false);
 
   useEffect(() => {
-    const handleVisibilityChange = async () => {
-      const hasMiningBot = user?.boosts.some(
+    const processOfflineMining = async () => {
+      if (!user || processedRef.current) return;
+
+      const hasMiningBot = user.boosts.some(
         (b) => b.boostId === 'bot-1' && b.quantity > 0
       );
+      if (!hasMiningBot) return;
 
-      if (!user || !hasMiningBot) return;
+      const lastSeen = localStorage.getItem(`lastSeen_${user.id}`);
+      const now = Date.now();
 
-      if (document.visibilityState === 'hidden') {
-        startTimeRef.current = Date.now();
-        localStorage.setItem('miningStartTime', startTimeRef.current.toString());
-      } else if (document.visibilityState === 'visible') {
-        const storedStartTime = localStorage.getItem('miningStartTime');
-        const startTime = storedStartTime ? parseInt(storedStartTime, 10) : startTimeRef.current;
-        
-        if (startTime) {
-          const endTime = Date.now();
-          const hoursElapsed = (endTime - startTime) / (1000 * 60 * 60);
+      if (lastSeen) {
+        const startTime = parseInt(lastSeen, 10);
+        const hoursElapsed = (now - startTime) / (1000 * 60 * 60);
+        // We set a minimum threshold to avoid tiny transactions on quick refreshes
+        const MIN_HOURS = 0.001; // about 3.6 seconds
+
+        if (hoursElapsed > MIN_HOURS) {
           const ktcMined = hoursElapsed * KTC_PER_HOUR;
-          
-          if (ktcMined > 0.01) {
-            const newKtc = user.ktc + ktcMined;
-            updateUser({ ktc: newKtc });
+          const newKtc = user.ktc + ktcMined;
 
-            addTransaction({
-                type: 'deposit',
-                amount: ktcMined,
-                description: 'Background mining bot earnings'
-            });
+          await updateUser({ ktc: newKtc });
 
-            const summaryResult = await getBackgroundMiningSummary(
-              new Date(startTime).toISOString(),
-              new Date(endTime).toISOString(),
-              ktcMined
-            );
-            
-            toast({
-              title: 'Background Mining Report',
-              description: summaryResult.summary,
-            });
-          }
+          await addTransaction({
+            type: 'deposit',
+            amount: ktcMined,
+            description: 'Background mining bot earnings',
+          });
 
-          startTimeRef.current = null;
-          localStorage.removeItem('miningStartTime');
+          const summaryResult = await getBackgroundMiningSummary(
+            new Date(startTime).toISOString(),
+            new Date(now).toISOString(),
+            ktcMined
+          );
+
+          toast({
+            title: 'Background Mining Report',
+            description: summaryResult.summary,
+          });
         }
       }
+      // Mark as processed for this session to avoid re-triggering on hot-reloads
+      processedRef.current = true; 
     };
+
+    processOfflineMining();
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        if (user) {
+          localStorage.setItem(`lastSeen_${user.id}`, Date.now().toString());
+        }
+      } else {
+         // When returning to the tab, re-process to catch time away
+         processedRef.current = false;
+         processOfflineMining();
+      }
+    };
+    
+    // Set timestamp when user navigates away or closes tab
+    window.addEventListener('beforeunload', () => {
+        if (user) {
+            localStorage.setItem(`lastSeen_${user.id}`, Date.now().toString());
+        }
+    });
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
-    // Clean up local storage on component unmount
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      const storedStartTime = localStorage.getItem('miningStartTime');
-      if(storedStartTime) {
-         // To be safe, if the component unmounts, let's process any pending mining time
-         handleVisibilityChange();
-      }
+      // Ensure the timestamp is set one last time on cleanup
+       if (user) {
+         localStorage.setItem(`lastSeen_${user.id}`, Date.now().toString());
+       }
     };
   }, [user, updateUser, toast, addTransaction]);
 }
