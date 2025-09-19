@@ -18,29 +18,12 @@ import { useRouter } from 'next/navigation';
 import { useState, FormEvent, useEffect } from 'react';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-
-// A small list of countries for the example
-const countries = [
-  { code: 'US', name: 'United States' },
-  { code: 'CA', name: 'Canada' },
-  { code: 'GB', name: 'United Kingdom' },
-  { code: 'AU', name: 'Australia' },
-  { code: 'DE', name: 'Germany' },
-  { code: 'FR', name: 'France' },
-  { code: 'JP', name: 'Japan' },
-  { code: 'IN', name: 'India' },
-  { code: 'BR', name: 'Brazil' },
-  { code: 'ZA', name: 'South Africa' },
-];
-
 
 export default function SignupPage() {
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [country, setCountry] = useState('');
   const [referral, setReferral] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -67,11 +50,8 @@ export default function SignupPage() {
     }
 
     try {
-      console.log('Signing up with:', { email, phoneNumber, country, referral });
       await signup(email, password, {
-        // @ts-ignore
-        phoneNumber,
-        country,
+        name,
         referralCode: referral,
       });
     } catch (error: any) {
@@ -84,14 +64,27 @@ export default function SignupPage() {
   };
 
   return (
-    <Card className="w-full max-w-md">
-      <CardHeader className="text-center">
-        <CardTitle className="text-3xl font-bold">Sign Up</CardTitle>
-        <CardDescription>Join Kotela and start mining today.</CardDescription>
+    <Card className="w-full max-w-lg">
+      <CardHeader className="text-left">
+        <CardTitle className="text-2xl font-bold">Sign Up</CardTitle>
+        <CardDescription>
+            Enter your information to create an account
+        </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Username</Label>
+              <Input
+                id="name"
+                type="text"
+                placeholder="yourusername"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -101,17 +94,6 @@ export default function SignupPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-             <div className="space-y-2">
-              <Label htmlFor="phone-number">Phone Number</Label>
-              <Input
-                id="phone-number"
-                type="tel"
-                placeholder="+1 234 567 890"
-                required
-                value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
               />
             </div>
           </div>
@@ -159,21 +141,7 @@ export default function SignupPage() {
               </div>
             </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-             <div className="space-y-2">
-              <Label htmlFor="country">Country</Label>
-              <Select onValueChange={setCountry} value={country}>
-                <SelectTrigger id="country">
-                  <SelectValue placeholder="Select your country" />
-                </SelectTrigger>
-                <SelectContent>
-                  {countries.map((c) => (
-                    <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
+          <div className="space-y-2">
               <Label htmlFor="referral">Referral Code (Optional)</Label>
               <Input
                 id="referral"
@@ -181,18 +149,17 @@ export default function SignupPage() {
                 value={referral}
                 onChange={(e) => setReferral(e.target.value)}
               />
-            </div>
           </div>
         </CardContent>
         <CardFooter className="flex flex-col gap-4">
           <Button type="submit" className="w-full" disabled={loading}>
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Sign Up
+            Create an account
           </Button>
           <p className="text-xs text-center text-muted-foreground">
             Already have an account?{' '}
             <Link href="/login" className="underline">
-              Log in
+              Sign in
             </Link>
           </p>
         </CardFooter>
