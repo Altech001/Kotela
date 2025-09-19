@@ -8,17 +8,17 @@ import { getBackgroundMiningSummary } from '@/lib/actions';
 const KTC_PER_HOUR = 1;
 
 export function useBackgroundMining() {
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, addTransaction } = useAuth();
   const { toast } = useToast();
   const startTimeRef = useRef<number | null>(null);
 
   useEffect(() => {
     const handleVisibilityChange = async () => {
       const hasMiningBot = user?.boosts.some(
-        (b) => b.boostId.startsWith('bot-') && b.quantity > 0
+        (b) => b.boostId === 'bot-1' && b.quantity > 0
       );
 
-      if (!hasMiningBot) return;
+      if (!user || !hasMiningBot) return;
 
       if (document.visibilityState === 'hidden') {
         startTimeRef.current = Date.now();
@@ -32,9 +32,15 @@ export function useBackgroundMining() {
           const hoursElapsed = (endTime - startTime) / (1000 * 60 * 60);
           const ktcMined = hoursElapsed * KTC_PER_HOUR;
           
-          if (ktcMined > 0.01 && user) {
+          if (ktcMined > 0.01) {
             const newKtc = user.ktc + ktcMined;
             updateUser({ ktc: newKtc });
+
+            addTransaction({
+                type: 'deposit',
+                amount: ktcMined,
+                description: 'Background mining bot earnings'
+            });
 
             const summaryResult = await getBackgroundMiningSummary(
               new Date(startTime).toISOString(),
@@ -56,8 +62,14 @@ export function useBackgroundMining() {
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
+    // Clean up local storage on component unmount
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      const storedStartTime = localStorage.getItem('miningStartTime');
+      if(storedStartTime) {
+         // To be safe, if the component unmounts, let's process any pending mining time
+         handleVisibilityChange();
+      }
     };
-  }, [user, updateUser, toast]);
+  }, [user, updateUser, toast, addTransaction]);
 }

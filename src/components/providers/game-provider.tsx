@@ -8,11 +8,13 @@ import { useAuth } from '@/hooks/use-auth';
 const GAME_DURATION = 30;
 
 export const GameProvider = ({ children }: { children: ReactNode }) => {
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, addTransaction } = useAuth();
   const [score, setScore] = useState(0);
   const [timer, setTimer] = useState(GAME_DURATION);
   const [gameStatus, setGameStatus] = useState<GameStatus>('idle');
   const [activeBoosts, setActiveBoosts] = useState<any>({});
+  
+  const hasMiningBot = user?.boosts.some((b) => b.boostId === 'bot-1' && b.quantity > 0);
 
   const startGame = useCallback(() => {
     setScore(0);
@@ -28,10 +30,28 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
   }, [gameStatus, activeBoosts]);
 
   const endGame = useCallback(() => {
-    if (gameStatus !== 'playing' || !user) return;
+    if (gameStatus !== 'playing' || !user || score === 0) return;
     setGameStatus('ended');
-    updateUser({ ktc: user.ktc + score });
-  }, [gameStatus, score, user, updateUser]);
+    const newKtc = user.ktc + score;
+    updateUser({ ktc: newKtc });
+    addTransaction({
+      type: 'deposit',
+      amount: score,
+      description: 'Gameplay earnings',
+    });
+  }, [gameStatus, score, user, updateUser, addTransaction]);
+
+  // Auto-tapping for mining bot
+  useEffect(() => {
+    let autoTapInterval: NodeJS.Timeout;
+    if (gameStatus === 'playing' && hasMiningBot) {
+      autoTapInterval = setInterval(() => {
+        tap();
+      }, 1000); // Taps once per second
+    }
+    return () => clearInterval(autoTapInterval);
+  }, [gameStatus, hasMiningBot, tap]);
+
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -47,14 +67,30 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
 
   const buyBoost = useCallback((boost: Boost): boolean => {
     if (user && user.ktc >= boost.cost) {
-      updateUser({
-        ktc: user.ktc - boost.cost,
-        boosts: [...(user.boosts || []), { boostId: boost.id, quantity: 1 }],
-      });
-      return true;
+        const existingBoostIndex = user.boosts.findIndex(b => b.boostId === boost.id);
+        let newBoosts = [...(user.boosts || [])];
+
+        if (existingBoostIndex > -1) {
+            newBoosts[existingBoostIndex].quantity += 1;
+        } else {
+            newBoosts.push({ boostId: boost.id, quantity: 1 });
+        }
+        
+        updateUser({
+            ktc: user.ktc - boost.cost,
+            boosts: newBoosts,
+        });
+
+        addTransaction({
+            type: 'purchase',
+            amount: boost.cost,
+            description: `Purchased ${boost.name}`,
+        });
+
+        return true;
     }
     return false;
-  }, [user, updateUser]);
+}, [user, updateUser, addTransaction]);
 
   const activateBoost = useCallback((boostId: string) => {
     // In a real app, this would be more complex

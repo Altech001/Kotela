@@ -1,5 +1,5 @@
 'use client';
-import type { User } from '@/lib/types';
+import type { User, Transaction } from '@/lib/types';
 import { createContext } from 'react';
 
 type AuthContextType = {
@@ -9,6 +9,7 @@ type AuthContextType = {
   signup: (email: string, password: string, extraData?: Partial<User>) => Promise<void>;
   logout: () => void;
   updateUser: (data: Partial<User>) => void;
+  addTransaction: (transaction: Omit<Transaction, 'id' | 'timestamp'>) => Promise<void>;
 };
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);

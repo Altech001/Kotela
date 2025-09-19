@@ -11,7 +11,7 @@ import {
   signOut,
   User as FirebaseUser,
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs, writeBatch } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs, writeBatch, arrayUnion } from 'firebase/firestore';
 
 
 const createUserObject = (firebaseUser: FirebaseUser, extraData: Partial<User> = {}): User => ({
@@ -108,8 +108,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             timestamp: new Date().toISOString(),
             description: `Referral bonus for ${newUser.email}`,
           };
-          const newReferrerTransactions = [...(referrerData.transactions || []), referrerBonusTx];
-          batch.update(referrerRef, { ktc: newReferrerKtc, transactions: newReferrerTransactions });
+          batch.update(referrerRef, { ktc: newReferrerKtc, transactions: arrayUnion(referrerBonusTx) });
         }
       }
       
@@ -144,7 +143,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [user]);
 
-  const value = { user, loading, login, signup, logout, updateUser };
+  const addTransaction = useCallback(async (transaction: Omit<Transaction, 'id' | 'timestamp'>) => {
+    if (user) {
+      const newTransaction: Transaction = {
+        ...transaction,
+        id: `tx-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        timestamp: new Date().toISOString(),
+      };
+      
+      const userDocRef = doc(db, 'users', user.id);
+      await updateDoc(userDocRef, {
+        transactions: arrayUnion(newTransaction),
+      });
+
+      setUser((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          transactions: [...(prev.transactions || []), newTransaction],
+        };
+      });
+    }
+  }, [user]);
+
+
+  const value = { user, loading, login, signup, logout, updateUser, addTransaction };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
