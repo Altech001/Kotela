@@ -57,7 +57,7 @@ export default function ProfilePage() {
       return;
     }
     if (!recipient) {
-      toast({ title: 'Invalid Recipient', description: 'Please enter a recipient ID.', variant: 'destructive' });
+      toast({ title: 'Invalid Recipient', description: 'Please enter a recipient ID or wallet address.', variant: 'destructive' });
       setIsSending(false);
       return;
     }

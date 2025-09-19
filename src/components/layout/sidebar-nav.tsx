@@ -12,7 +12,6 @@ import {
 } from '@/components/ui/sidebar';
 import {
   Flame,
-  LayoutGrid,
   Store,
   ShieldCheck,
   Trophy,
