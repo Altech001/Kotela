@@ -5,6 +5,7 @@ import { useMemo } from "react";
 import { Pickaxe, Repeat, AlertTriangle, TimerIcon, Rocket, Snowflake, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useGame } from '@/hooks/use-game';
+import { useAuth } from '@/hooks/use-auth';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,12 +16,14 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
+import { getBoost } from "@/lib/actions";
+import { storeItems } from "@/lib/data";
 
 export function GameEngine() {
+  const { user } = useAuth();
   const {
     session,
     gameStatus,
-    inventory,
     isModalOpen,
     setIsModalOpen,
     privacyWarning,
@@ -46,12 +49,15 @@ export function GameEngine() {
     if (!session || gameStatus !== 'playing') {
       return (session?.duration || 30);
     }
-    return Math.max(0, Math.round((session.expectedEndTime - Date.now()) / 1000));
+    const isFrozen = session.activeBoost?.type === 'time_freeze' && Date.now() < session.activeBoost.endTime;
+    const endTime = isFrozen ? session.activeBoost.endTime : session.expectedEndTime;
+
+    return Math.max(0, Math.round((endTime - Date.now()) / 1000));
   }, [session, gameStatus]);
 
 
   const activeBoostInfo = useMemo(() => {
-    if (!session?.activeBoost) return null;
+    if (!session?.activeBoost || Date.now() >= session.activeBoost.endTime) return null;
     return {
       ...session.activeBoost,
       timeLeft: Math.max(0, Math.round((session.activeBoost.endTime - Date.now()) / 1000)),
@@ -68,13 +74,13 @@ export function GameEngine() {
   }, [activeBoostInfo]);
 
   const BoostStatus = () => {
-    if (gameStatus !== 'playing' || !activeBoostInfo || activeBoostInfo.timeLeft <= 0) return null;
+    if (gameStatus !== 'playing' || !activeBoostInfo) return null;
   
     let icon = null;
     let text = '';
   
     if (activeBoostInfo.type === 'score_multiplier') {
-      icon = <Rocket className="h-4 w-4" />;
+      icon = <Zap className="h-4 w-4" />;
       text = `${activeBoostInfo.value}x Boost! (${activeBoostInfo.timeLeft}s)`;
     } else if (activeBoostInfo.type === 'time_freeze') {
       icon = <Snowflake className="h-4 w-4" />;
@@ -82,17 +88,31 @@ export function GameEngine() {
     }
   
     return (
-      <span className={`absolute -bottom-6 flex items-center gap-1 font-bold text-xs ${boostTextColor}`}>
+      <span className={cn("absolute -bottom-6 flex items-center gap-1 font-bold text-xs", boostTextColor)}>
         {icon}
         {text}
       </span>
     );
   };
+  
+  const hasBoost = (boostType: string) => {
+    const boostMeta = storeItems.find(i => i.type === boostType);
+    if (!boostMeta) return { has: false, quantity: 0, id: '' };
+    const userBoost = user?.boosts.find(b => b.boostId === boostMeta.id);
+    return {
+        has: !!userBoost && userBoost.quantity > 0,
+        quantity: userBoost?.quantity || 0,
+        id: boostMeta.id
+    };
+  };
+
+  const multiplierBoost = hasBoost('score_multiplier');
+  const freezeBoost = hasBoost('time_freeze');
 
   return (
     <div className="w-full max-w-md flex flex-col items-center gap-6">
       <div className="relative w-56 h-56 flex items-center justify-center">
-        <svg className={`absolute w-[224px] h-[224px] -rotate-90 transition-all duration-300 ${gameStatus === 'playing' ? 'animate-glow' : ''}`} style={{ filter: `drop-shadow(0 0 5px hsl(var(--primary)))`}}>
+        <svg className={`absolute w-[224px] h-[224px] -rotate-90 transition-all duration-300 ${gameStatus === 'playing' ? 'animate-pulse' : ''}`} style={{ filter: `drop-shadow(0 0 5px hsl(var(--primary)))`}}>
           <circle
             cx="112"
             cy="112"
@@ -110,8 +130,7 @@ export function GameEngine() {
             fill="transparent"
             strokeDasharray={CIRCLE_CIRCUMFERENCE}
             strokeDashoffset={progressOffset}
-            className="transition-all duration-100"
-            style={{transition: 'stroke-dashoffset 0.1s linear'}}
+            style={{transition: 'stroke-dashoffset 1s linear'}}
           />
         </svg>
         <button
@@ -124,12 +143,12 @@ export function GameEngine() {
           {gameStatus === 'idle' && (
             <div className='text-center'>
               <Pickaxe className="w-12 h-12 mb-2 transition-transform group-hover:scale-110 group-active:scale-90 inline-block" />
-              <span className="text-lg font-semibold">Tap to Mine</span>
+              <span className="text-sm font-semibold">Tap to Mine</span>
             </div>
           )}
           {gameStatus === 'playing' && (
             <div className="text-center overflow-hidden">
-              <div className="text-xs uppercase text-muted-foreground">Coins</div>
+              <div className="text-xs uppercase text-muted-foreground">KTC</div>
               <div className={cn("font-bold text-xl", boostTextColor)}>{session?.score?.toFixed(2) || '0.00'}</div>
               <div className="text-xs text-muted-foreground mt-1 flex items-center justify-center gap-1">
                 <TimerIcon className="h-3 w-3" />
@@ -142,7 +161,7 @@ export function GameEngine() {
             <div className='text-center overflow-hidden'>
               <div className="text-xs uppercase text-muted-foreground">Game Over</div>
               <div className={cn("font-bold text-xl", boostTextColor)}>{session?.score?.toFixed(2) || '0.00'}</div>
-              <div className="text-xs text-muted-foreground mt-1">Final Coins</div>
+              <div className="text-xs text-muted-foreground mt-1">Final Score</div>
             </div>
           )}
         </button>
@@ -151,8 +170,8 @@ export function GameEngine() {
       <div className="flex flex-wrap items-center justify-center gap-2">
         {gameStatus === 'playing' && (
           <>
-            <Button onClick={() => activateBoost('multiplier-2x')} disabled={(inventory.score_multiplier || 0) <= 0 || !!activeBoostInfo} variant="outline" size="sm"><Zap />({inventory.score_multiplier || 0})</Button>
-            <Button onClick={() => activateBoost('time-freeze-5')} disabled={(inventory.time_freeze || 0) <= 0 || !!activeBoostInfo} variant="outline" size="sm" className="text-cyan-400 border-cyan-400 hover:bg-cyan-400 hover:text-white"><Snowflake />({inventory.time_freeze || 0})</Button>
+            <Button onClick={() => activateBoost(multiplierBoost.id)} disabled={!multiplierBoost.has || !!activeBoostInfo} variant="outline" size="sm"><Zap />({multiplierBoost.quantity})</Button>
+            <Button onClick={() => activateBoost(freezeBoost.id)} disabled={!freezeBoost.has || !!activeBoostInfo} variant="outline" size="sm" className="text-cyan-400 border-cyan-400 hover:bg-cyan-400/10 hover:text-cyan-300"><Snowflake />({freezeBoost.quantity})</Button>
           </>
         )}
         {gameStatus === "ended" && (
@@ -164,13 +183,15 @@ export function GameEngine() {
       </div>
 
       <AlertDialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-w-xs sm:max-w-md rounded-lg">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="text-destructive" />
-              Privacy Warning
+              <AlertTriangle className="text-yellow-500" />
+              Privacy Notice
             </AlertDialogTitle>
-            <AlertDialogDescription>{privacyWarning}</AlertDialogDescription>
+            <AlertDialogDescription className="text-xs max-h-40 overflow-y-auto">
+                {privacyWarning}
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogAction onClick={() => setIsModalOpen(false)}>

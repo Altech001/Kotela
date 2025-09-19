@@ -1,7 +1,6 @@
 
 "use client";
 
-import { useEffect, useState } from 'react';
 import { GameEngine } from '@/components/game-engine';
 import { Leaderboard } from '@/components/leaderboard';
 import { Store } from '@/components/store';
@@ -25,10 +24,12 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { BlogWidget } from '@/components/blog-widget';
 import { useGame } from '@/hooks/use-game';
 import { useAuth } from '@/hooks/use-auth';
+import { useState } from 'react';
+import { storeItems } from '@/lib/data';
 
 export default function Home() {
   const { user } = useAuth();
-  const { isStoreOpen, setIsStoreOpen, inventory } = useGame();
+  const { isStoreOpen, setIsStoreOpen } = useGame();
   const [isBotDialogOpen, setIsBotDialogOpen] = useState(false);
   const [isKycDialogOpen, setIsKycDialogOpen] = useState(false);
   const userLocation = useUserLocation();
@@ -50,6 +51,13 @@ export default function Home() {
       alert("Trading bots are available for verified users. This is a placeholder.");
     }
   }
+  
+  const inventoryIcons = {
+      score_multiplier: Zap,
+      extra_time: Clock,
+      time_freeze: Snowflake,
+      mining_bot: Bot,
+  }
 
   return (
     <div className="flex flex-col min-h-[calc(100vh-4rem)] bg-background">
@@ -62,7 +70,7 @@ export default function Home() {
                 <div className="flex items-center gap-2 mt-1">
                     <MapPin className="w-4 h-4 text-muted-foreground" />
                     {userLocation.loading ? (
-                        <Skeleton className="h-4 w-32" />
+                        <Skeleton className="h-4 w-[100px]" />
                     ) : userLocation.error ? (
                         <p className="text-xs text-destructive">{userLocation.error}</p>
                     ) : (
@@ -70,7 +78,7 @@ export default function Home() {
                     )}
                 </div>
                 <p className="text-sm text-muted-foreground max-w-xs mt-2">
-                    Tap to mine. Use boosts to get a high score!
+                    Tap to start mining. Use boosts to get a high score!
                 </p>
             </div>
             <div className="w-full flex items-center justify-between">
@@ -117,13 +125,13 @@ export default function Home() {
                  </Dialog>
                  
                  <Dialog open={isKycDialogOpen} onOpenChange={setIsKycDialogOpen}>
-                    <DialogContent>
+                    <DialogContent className="max-w-xs sm:max-w-md rounded-lg">
                         <DialogHeader>
                             <DialogTitle className="flex items-center gap-2">
                                 <ShieldCheck className="h-6 w-6 text-primary" />
                                 Verification Required
                             </DialogTitle>
-                            <DialogDescription>
+                            <DialogDescription className="text-sm">
                                 You must complete KYC verification to use trading bots.
                             </DialogDescription>
                         </DialogHeader>
@@ -132,7 +140,7 @@ export default function Home() {
                                 <Button type="button" variant="ghost">Cancel</Button>
                             </DialogClose>
                             <Button asChild>
-                                <Link href="/kyc">Verify Now</Link>
+                                <Link href="/kyc">Verify</Link>
                             </Button>
                         </DialogFooter>
                     </DialogContent>
@@ -176,18 +184,21 @@ export default function Home() {
                     <h3 className="text-base font-semibold mb-1 flex items-center gap-2"><Rocket/> My Boosts</h3>
                     <p className="text-xs text-muted-foreground mb-3">Activate boosts during a game.</p>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
-                            <Zap className="w-4 h-4 text-yellow-500"/>
-                            <span className="font-bold text-xs">Multiplier x {inventory.score_multiplier || 0}</span>
-                        </div>
-                        <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
-                            <Clock className="w-4 h-4 text-blue-500"/>
-                            <span className="font-bold text-xs">Extra Time x {inventory.extra_time || 0}</span>
-                        </div>
-                        <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
-                            <Snowflake className="w-4 h-4 text-cyan-400"/>
-                            <span className="font-bold text-xs">Freeze Time x {inventory.time_freeze || 0}</span>
-                        </div>
+                       {user?.boosts && user.boosts.length > 0 ? (
+                           user.boosts.map(userBoost => {
+                               const boostInfo = storeItems.find(item => item.id === userBoost.boostId);
+                               if (!boostInfo) return null;
+                               const Icon = inventoryIcons[boostInfo.type];
+                               return (
+                                   <div key={boostInfo.id} className="flex items-center gap-2 p-2 bg-muted rounded-md text-xs font-bold">
+                                       {Icon && <Icon className="w-4 h-4" />}
+                                       <span>{boostInfo.name.split(' ')[0]} x {userBoost.quantity}</span>
+                                   </div>
+                               )
+                           })
+                       ) : (
+                           <p className="text-xs text-muted-foreground col-span-full text-center py-4">No boosts yet. Visit the store!</p>
+                       )}
                     </div>
                 </div>
             </div>

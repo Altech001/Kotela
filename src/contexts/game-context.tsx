@@ -1,7 +1,7 @@
 
 "use client";
 
-import { createContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { createContext, useState, useEffect, useCallback, ReactNode, useMemo } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import type { Boost as BoostType, UserBoost, GameSession } from '@/lib/types';
 import { runPrivacyAnalysis, getBoosts, getBoost } from '@/lib/actions';
@@ -20,7 +20,6 @@ export interface GameContextType {
   isStoreOpen: boolean;
   isModalOpen: boolean;
   privacyWarning: string | null;
-  inventory: Record<string, number>;
   
   handleTap: () => void;
   resetGame: () => Promise<void>;
@@ -41,25 +40,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [isStoreOpen, setIsStoreOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [privacyWarning, setPrivacyWarning] = useState<string | null>(null);
-  const [localInventory, setLocalInventory] = useState<Record<string, number>>({});
-  
-  // Sync local inventory with user boosts
-  useEffect(() => {
-    if (user?.boosts) {
-      const fetchBoostsDetails = async () => {
-        const boosts = await getBoosts();
-        const inv: Record<string, number> = {};
-        user.boosts.forEach(userBoost => {
-          const boostDetail = boosts.find(b => b.id === userBoost.boostId);
-          if (boostDetail) {
-            inv[boostDetail.type] = (inv[boostDetail.type] || 0) + userBoost.quantity;
-          }
-        });
-        setLocalInventory(inv);
-      };
-      fetchBoostsDetails();
-    }
-  }, [user?.boosts]);
   
   // Game session listener
   useEffect(() => {
@@ -73,8 +53,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const unsubscribe = onSnapshot(sessionRef, (doc) => {
       if (doc.exists()) {
         const sessionData = doc.data() as GameSession;
+        // Check if the game has ended based on expectedEndTime
         if (sessionData.status === 'playing' && Date.now() >= sessionData.expectedEndTime) {
-          endGame(sessionData);
+           // Call endGame with the session data from the snapshot
+           endGame(sessionData);
         } else {
           setSession(sessionData);
           setGameStatus(sessionData.status);
@@ -97,7 +79,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         const now = Date.now();
         let currentSession = session;
 
-        // Fetch latest session data to avoid race conditions
+        // Fetch latest session data to avoid race conditions, especially for boost activations
         if(user) {
             const sessionRef = doc(db, 'gameSessions', user.id);
             const docSnap = await getDoc(sessionRef);
@@ -115,22 +97,33 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
         // Automatic Mining Logic
         let currentRate = BASE_MINING_RATE;
-        if (currentSession.activeBoost && currentSession.activeBoost.type === 'score_multiplier' && now < currentSession.activeBoost.endTime) {
+        if (currentSession.activeBoost && now < currentSession.activeBoost.endTime) {
+          if (currentSession.activeBoost.type === 'score_multiplier') {
             currentRate *= currentSession.activeBoost.value;
+          }
+        } else if (currentSession.activeBoost) {
+           // Boost has expired, clear it
+           if(user){
+             const sessionRef = doc(db, 'gameSessions', user.id);
+             await updateDoc(sessionRef, { activeBoost: null });
+           }
         }
 
-        const scoreToAdd = currentRate * 1; // Since tick is every 1 second
+        // Time freeze check
+        const isTimeFrozen = currentSession.activeBoost?.type === 'time_freeze' && now < currentSession.activeBoost.endTime;
+
+        const scoreToAdd = isTimeFrozen ? 0 : currentRate * 1; // Add score per second, unless time is frozen
 
         const newScore = (currentSession.score || 0) + scoreToAdd;
         
-        // This is a simplified update. For high-frequency updates, Cloud Functions would be better.
         if (user) {
             const sessionRef = doc(db, 'gameSessions', user.id);
             await updateDoc(sessionRef, { score: newScore });
         }
         
-        // Force a re-render to update timers on the UI
-        setSession(s => s ? {...s, score: newScore} : null);
+        // Force a re-render to update timers on the UI.
+        // We read from the local `currentSession` to make the UI feel instant.
+        setSession(s => s ? {...currentSession, score: newScore} : null);
       };
       
       interval = setInterval(tick, 1000);
@@ -160,13 +153,17 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const endGame = useCallback(async (finalSession: GameSession) => {
     if (!user || finalSession.status !== 'playing') return;
 
-    const finalScore = finalSession.score;
+    // Use a state to track that the game is ending to prevent race conditions
+    if (gameStatus === 'ended') return; 
+
     setGameStatus('ended');
     setSession(s => s ? {...s, status: 'ended'} : null);
 
     const sessionRef = doc(db, 'gameSessions', user.id);
-    await deleteDoc(sessionRef);
+    // Don't delete immediately, let the UI show final score
+    await updateDoc(sessionRef, { status: 'ended' });
 
+    const finalScore = finalSession.score;
     if (finalScore > 0) {
       const newKtc = user.ktc + finalScore;
       await updateUser({ ktc: newKtc });
@@ -187,7 +184,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error("Privacy analysis failed:", error);
     }
-  }, [user, updateUser, addTransaction]);
+  }, [user, updateUser, addTransaction, gameStatus]);
 
 
   const handleTap = useCallback(async () => {
@@ -199,7 +196,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const resetGame = async () => {
     if(!user) return;
     const sessionRef = doc(db, 'gameSessions', user.id);
-    await deleteDoc(sessionRef).catch(() => {});
+    await deleteDoc(sessionRef).catch(() => {}); // delete doc and ignore if not found
     setSession(null);
     setGameStatus("idle");
     setPrivacyWarning(null);
@@ -240,14 +237,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
             description: `Purchased ${boost.name}`,
         });
 
-        const boostInfo = await getBoost(boost.id);
-        if (boostInfo) {
-            setLocalInventory(prev => ({
-                ...prev,
-                [boostInfo.type]: (prev[boostInfo.type] || 0) + 1,
-            }));
-        }
-
+        // This will trigger a re-render via the auth provider's user state update
         return true;
     } catch (error) {
         console.error("Purchase failed:", error);
@@ -281,35 +271,46 @@ export function GameProvider({ children }: { children: ReactNode }) {
  const activateBoost = async (boostId: string) => {
     if (gameStatus !== 'playing' || !user || !session || session.activeBoost) return;
 
+    // The user's boosts are on user.boosts. We need the static boost info from `getBoost`
     const boostInfo = await getBoost(boostId);
-    if (!boostInfo) return;
-
-    const hasBoost = await useBoost(boostId);
-    if (!hasBoost) return;
+    if (!boostInfo) {
+      console.error("Boost details not found");
+      return;
+    }
+    
+    // Check if user has it and then consume it
+    const hasBoost = user.boosts.some(b => b.boostId === boostId && b.quantity > 0);
+    if (!hasBoost) {
+      console.error("User does not have this boost");
+      return;
+    }
+    await useBoost(boostId);
     
     const sessionRef = doc(db, 'gameSessions', user.id);
     const now = Date.now();
 
+    const activeBoostPayload = {
+      id: boostId,
+      type: boostInfo.type,
+      value: boostInfo.value,
+      endTime: 0, // set below
+    };
+
     if (boostInfo.type === 'score_multiplier') {
-        const activeBoostPayload = {
-            id: boostId,
-            type: boostInfo.type,
-            value: boostInfo.value,
-            endTime: now + 5000, // 5 seconds duration
-        };
+        activeBoostPayload.endTime = now + 5000; // 5 seconds duration
         await updateDoc(sessionRef, { activeBoost: activeBoostPayload });
     } else if (boostInfo.type === 'time_freeze') {
-         const activeBoostPayload = {
-            id: boostId,
-            type: boostInfo.type,
-            value: boostInfo.value,
-            endTime: now + (boostInfo.value * 1000),
-        };
-        const newExpectedEndTime = session.expectedEndTime + (boostInfo.value * 1000);
-        await updateDoc(sessionRef, { 
-            activeBoost: activeBoostPayload,
-            expectedEndTime: newExpectedEndTime
-        });
+        activeBoostPayload.endTime = now + (boostInfo.value * 1000);
+        // We need to read the current session to safely update the end time
+        const currentSessionDoc = await getDoc(sessionRef);
+        if (currentSessionDoc.exists()) {
+          const currentSessionData = currentSessionDoc.data() as GameSession;
+          const newExpectedEndTime = currentSessionData.expectedEndTime + (boostInfo.value * 1000);
+          await updateDoc(sessionRef, { 
+              activeBoost: activeBoostPayload,
+              expectedEndTime: newExpectedEndTime
+          });
+        }
     }
  };
 
@@ -320,7 +321,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
     isStoreOpen,
     isModalOpen,
     privacyWarning,
-    inventory: localInventory,
     handleTap,
     resetGame,
     buyBoost,
