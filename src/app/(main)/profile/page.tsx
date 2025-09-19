@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/use-auth';
 import { Badge } from '@/components/ui/badge';
-import { Copy, Send, ArrowUpCircle, ArrowDownCircle, ShoppingCart, Bot } from 'lucide-react';
+import { Copy, Send, ArrowUpCircle, ArrowDownCircle, ShoppingCart, Bot, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { useState } from 'react';
@@ -33,10 +33,11 @@ const transactionIcons = {
 };
 
 export default function ProfilePage() {
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, transferKtc } = useAuth();
   const { toast } = useToast();
   const [sendAmount, setSendAmount] = useState('');
   const [recipient, setRecipient] = useState('');
+  const [isSending, setIsSending] = useState(false);
 
 
   if (!user) return null;
@@ -46,27 +47,36 @@ export default function ProfilePage() {
     toast({ title: 'Copied!', description: 'Referral code copied to clipboard.' });
   };
   
-  const handleSendKtc = (e: React.FormEvent) => {
+  const handleSendKtc = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSending(true);
     const amount = parseFloat(sendAmount);
     if (isNaN(amount) || amount <= 0) {
       toast({ title: 'Invalid Amount', description: 'Please enter a valid amount to send.', variant: 'destructive' });
+      setIsSending(false);
       return;
     }
     if (!recipient) {
       toast({ title: 'Invalid Recipient', description: 'Please enter a recipient ID.', variant: 'destructive' });
+      setIsSending(false);
       return;
     }
     if (amount > user.ktc) {
       toast({ title: 'Insufficient Funds', description: 'You do not have enough KTC to make this transfer.', variant: 'destructive' });
+      setIsSending(false);
       return;
     }
 
-    // Simulate transfer
-    updateUser({ ktc: user.ktc - amount });
-    toast({ title: 'Transfer Successful', description: `${amount} KTC sent to ${recipient}` });
-    setSendAmount('');
-    setRecipient('');
+    try {
+      await transferKtc(recipient, amount);
+      toast({ title: 'Transfer Successful', description: `${amount} KTC sent to ${recipient}` });
+      setSendAmount('');
+      setRecipient('');
+    } catch (error: any) {
+        toast({ title: 'Transfer Failed', description: error.message, variant: 'destructive' });
+    } finally {
+        setIsSending(false);
+    }
   };
 
   const sortedTransactions = user.transactions ? [...user.transactions].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()) : [];
@@ -76,6 +86,18 @@ export default function ProfilePage() {
       return Bot;
     }
     return transactionIcons[transaction.type] || Bot;
+  }
+
+  const isCredit = (tx: Transaction) => {
+    if (tx.type === 'deposit') return true;
+    if (tx.type === 'transfer' && tx.to === user.id) return true;
+    return false;
+  }
+  
+  const isDebit = (tx: Transaction) => {
+      if (tx.type === 'withdrawal' || tx.type === 'purchase') return true;
+      if (tx.type === 'transfer' && tx.from === user.id) return true;
+      return false;
   }
 
   return (
@@ -156,15 +178,15 @@ export default function ProfilePage() {
             <TabsContent value="send" className="pt-4">
               <form className="space-y-4" onSubmit={handleSendKtc}>
                 <div className="space-y-2">
-                  <Label htmlFor="recipient">Recipient ID</Label>
+                  <Label htmlFor="recipient">Recipient Referral Code</Label>
                   <Input id="recipient" placeholder="KOTELA-..." value={recipient} onChange={(e) => setRecipient(e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="amount-send">Amount</Label>
                   <Input id="amount-send" type="number" placeholder="0.00 KTC" value={sendAmount} onChange={(e) => setSendAmount(e.target.value)} />
                 </div>
-                <Button className="w-full">
-                  <Send className="mr-2" />
+                <Button className="w-full" disabled={isSending}>
+                   {isSending ? <Loader2 className="mr-2 animate-spin" /> : <Send className="mr-2" />}
                   Send KTC
                 </Button>
               </form>
@@ -181,19 +203,20 @@ export default function ProfilePage() {
                   {sortedTransactions.length > 0 ? (
                     sortedTransactions.map((tx, index) => {
                       const Icon = getTransactionIcon(tx);
-                      const isCredit = tx.type === 'deposit';
+                      const credit = isCredit(tx);
+                      const debit = isDebit(tx);
                       return (
                         <div key={tx.id}>
                           <div className="flex items-center gap-4">
-                             <Icon className={cn('h-6 w-6', isCredit ? 'text-green-500' : 'text-red-500')} />
+                             <Icon className={cn('h-6 w-6', credit && 'text-green-500', debit && 'text-red-500')} />
                             <div className="flex-1">
                               <p className="font-medium">{tx.description}</p>
                               <p className="text-sm text-muted-foreground">
                                 {formatDistanceToNow(new Date(tx.timestamp), { addSuffix: true })}
                               </p>
                             </div>
-                            <div className={cn("font-mono text-right", isCredit ? 'text-green-500' : 'text-red-500')}>
-                              <p>{isCredit ? '+' : '-'} {tx.amount.toFixed(2)}</p>
+                            <div className={cn("font-mono text-right", credit && 'text-green-500', debit && 'text-red-500')}>
+                              <p>{credit && '+'}{debit && '-'} {tx.amount.toFixed(2)}</p>
                               <p className='text-xs text-muted-foreground'>KTC</p>
                             </div>
                           </div>

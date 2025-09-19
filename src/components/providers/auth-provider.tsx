@@ -11,7 +11,7 @@ import {
   signOut,
   User as FirebaseUser,
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs, writeBatch, arrayUnion } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs, writeBatch, arrayUnion, runTransaction } from 'firebase/firestore';
 
 
 const createUserObject = (firebaseUser: FirebaseUser, extraData: Partial<User> = {}): User => ({
@@ -22,7 +22,7 @@ const createUserObject = (firebaseUser: FirebaseUser, extraData: Partial<User> =
   ktc: 1000,
   boosts: [],
   transactions: [],
-  referralCode: `KOTELA-${firebaseUser.uid.slice(0, 6).toUpperCase()}`,
+  referralCode: `KOTELA-${firebaseUser.uid.slice(0, 8).toUpperCase()}`,
   isKycVerified: false,
   ...extraData,
 });
@@ -166,8 +166,86 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [user]);
 
+  const transferKtc = useCallback(async (recipientReferralCode: string, amount: number) => {
+    if (!user) throw new Error("You must be logged in to transfer KTC.");
+    if (recipientReferralCode === user.referralCode) throw new Error("You cannot send KTC to yourself.");
 
-  const value = { user, loading, login, signup, logout, updateUser, addTransaction };
+    try {
+        await runTransaction(db, async (transaction) => {
+            const usersRef = collection(db, 'users');
+            
+            // Get recipient
+            const recipientQuery = query(usersRef, where('referralCode', '==', recipientReferralCode));
+            const recipientSnapshot = await getDocs(recipientQuery);
+
+            if (recipientSnapshot.empty) {
+                throw new Error("Recipient not found.");
+            }
+            const recipientDoc = recipientSnapshot.docs[0];
+            const recipientData = recipientDoc.data() as User;
+            const recipientRef = doc(db, 'users', recipientDoc.id);
+
+            // Get sender
+            const senderRef = doc(db, 'users', user.id);
+            const senderDoc = await transaction.get(senderRef);
+            if (!senderDoc.exists()) {
+                throw new Error("Sender not found.");
+            }
+            const senderData = senderDoc.data() as User;
+            if (senderData.ktc < amount) {
+                throw new Error("Insufficient funds.");
+            }
+
+            // Update balances
+            const newSenderKtc = senderData.ktc - amount;
+            const newRecipientKtc = recipientData.ktc + amount;
+
+            const now = new Date().toISOString();
+            const txId = `tx-${Date.now()}`;
+
+            // Create transactions
+            const senderTx: Transaction = {
+                id: `${txId}-send`,
+                type: 'transfer',
+                amount: amount,
+                timestamp: now,
+                from: user.id,
+                to: recipientDoc.id,
+                description: `Sent to ${recipientData.name}`,
+            };
+
+            const recipientTx: Transaction = {
+                id: `${txId}-receive`,
+                type: 'transfer',
+                amount: amount,
+                timestamp: now,
+                from: user.id,
+                to: recipientDoc.id,
+                description: `Received from ${senderData.name}`,
+            };
+            
+            // Perform updates
+            transaction.update(senderRef, { ktc: newSenderKtc, transactions: arrayUnion(senderTx) });
+            transaction.update(recipientRef, { ktc: newRecipientKtc, transactions: arrayUnion(recipientTx) });
+
+             // Update local state optimistically
+            setUser((prev) => {
+                if (!prev) return null;
+                return {
+                ...prev,
+                ktc: newSenderKtc,
+                transactions: [...(prev.transactions || []), senderTx],
+                };
+            });
+        });
+    } catch (error) {
+        console.error("KTC Transfer failed: ", error);
+        throw error;
+    }
+  }, [user]);
+
+
+  const value = { user, loading, login, signup, logout, updateUser, addTransaction, transferKtc };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
