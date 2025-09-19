@@ -36,6 +36,7 @@ const StandaloneCommentSection = ({ post }: { post: BlogPost }) => {
     const [isPosting, setIsPosting] = useState(false);
 
     useEffect(() => {
+      if (!post) return;
       const fetchComments = async () => {
           setIsLoading(true);
           const fetchedComments = await getComments(post.id);
@@ -43,7 +44,7 @@ const StandaloneCommentSection = ({ post }: { post: BlogPost }) => {
           setIsLoading(false);
       };
       fetchComments();
-    }, [post.id]);
+    }, [post]);
 
     const handlePostComment = async () => {
         if (newComment.trim() === '' || !user) return;
