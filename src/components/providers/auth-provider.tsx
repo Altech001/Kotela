@@ -12,7 +12,7 @@ import {
   User as FirebaseUser,
 } from 'firebase/auth';
 
-const createUserFromFirebase = (firebaseUser: FirebaseUser): User => ({
+const createUserFromFirebase = (firebaseUser: FirebaseUser, extraData: Partial<User> = {}): User => ({
   id: firebaseUser.uid,
   email: firebaseUser.email || 'no-email@example.com',
   name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Player',
@@ -22,6 +22,7 @@ const createUserFromFirebase = (firebaseUser: FirebaseUser): User => ({
   transactions: [],
   referralCode: `KOTELA-${firebaseUser.uid.slice(0, 6).toUpperCase()}`,
   isKycVerified: false,
+  ...extraData,
 });
 
 
@@ -33,7 +34,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
         // In a real app, you'd fetch user profile from Firestore here
-        setUser(createUserFromFirebase(firebaseUser));
+        // For now, we check if there's local user data from signup
+        const localUser = localStorage.getItem('pendingUser');
+        if (localUser) {
+          const extraData = JSON.parse(localUser);
+          setUser(createUserFromFirebase(firebaseUser, extraData));
+          localStorage.removeItem('pendingUser');
+        } else {
+          setUser(createUserFromFirebase(firebaseUser));
+        }
       } else {
         setUser(null);
       }
@@ -52,11 +61,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  const signup = useCallback(async (email: string, password: string) => {
+  const signup = useCallback(async (email: string, password: string, extraData: Partial<User> = {}) => {
     setLoading(true);
     try {
+      // Temporarily store extra data to be picked up by onAuthStateChanged
+      localStorage.setItem('pendingUser', JSON.stringify(extraData));
       await createUserWithEmailAndPassword(auth, email, password);
-    } finally {
+    } catch(e) {
+      localStorage.removeItem('pendingUser');
+      throw e;
+    }
+    finally {
       setLoading(false);
     }
   }, []);

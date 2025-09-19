@@ -68,7 +68,11 @@ export default function SignupPage() {
 
     try {
       console.log('Signing up with:', { email, phoneNumber, country, referral });
-      await signup(email, password);
+      await signup(email, password, {
+        phoneNumber,
+        country,
+        referralCode: referral,
+      });
     } catch (error: any) {
        toast({
         title: 'Sign Up Failed',
@@ -79,7 +83,7 @@ export default function SignupPage() {
   };
 
   return (
-    <Card className="w-full max-w-sm">
+    <Card className="w-full max-w-md">
       <CardHeader className="text-center">
         <KotelaIcon className="mx-auto h-10 w-10 mb-2" />
         <CardTitle>Create an Account</CardTitle>
@@ -87,91 +91,97 @@ export default function SignupPage() {
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="player@kotela.com"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
-           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <div className="relative">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
               <Input
-                id="password"
-                type={showPassword ? 'text' : 'password'}
+                id="email"
+                type="email"
+                placeholder="player@kotela.com"
                 required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
               />
-              <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute inset-y-0 right-0 h-full px-3"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? <EyeOff /> : <Eye />}
-                </Button>
+            </div>
+             <div className="space-y-2">
+              <Label htmlFor="phone-number">Phone Number</Label>
+              <Input
+                id="phone-number"
+                type="tel"
+                placeholder="+1 234 567 890"
+                required
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+              />
             </div>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="confirm-password">Confirm Password</Label>
-             <div className="relative">
-              <Input
-                id="confirm-password"
-                type={showConfirmPassword ? 'text' : 'password'}
-                required
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-              />
-               <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute inset-y-0 right-0 h-full px-3"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                >
-                  {showConfirmPassword ? <EyeOff /> : <Eye />}
-                </Button>
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute inset-y-0 right-0 h-full px-3"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? <EyeOff /> : <Eye />}
+                  </Button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirm-password">Confirm Password</Label>
+               <div className="relative">
+                <Input
+                  id="confirm-password"
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  required
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                />
+                 <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute inset-y-0 right-0 h-full px-3"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  >
+                    {showConfirmPassword ? <EyeOff /> : <Eye />}
+                  </Button>
+              </div>
             </div>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="phone-number">Phone Number</Label>
-            <Input
-              id="phone-number"
-              type="tel"
-              placeholder="+1 234 567 890"
-              required
-              value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value)}
-            />
-          </div>
-           <div className="space-y-2">
-            <Label htmlFor="country">Country</Label>
-            <Select onValueChange={setCountry} value={country} required>
-              <SelectTrigger id="country">
-                <SelectValue placeholder="Select your country" />
-              </SelectTrigger>
-              <SelectContent>
-                {countries.map((c) => (
-                  <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="referral">Referral Code (Optional)</Label>
-            <Input
-              id="referral"
-              placeholder="KOTELA-..."
-              value={referral}
-              onChange={(e) => setReferral(e.target.value)}
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+             <div className="space-y-2">
+              <Label htmlFor="country">Country</Label>
+              <Select onValueChange={setCountry} value={country}>
+                <SelectTrigger id="country">
+                  <SelectValue placeholder="Select your country" />
+                </SelectTrigger>
+                <SelectContent>
+                  {countries.map((c) => (
+                    <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="referral">Referral Code (Optional)</Label>
+              <Input
+                id="referral"
+                placeholder="KOTELA-..."
+                value={referral}
+                onChange={(e) => setReferral(e.target.value)}
+              />
+            </div>
           </div>
         </CardContent>
         <CardFooter className="flex flex-col gap-4">

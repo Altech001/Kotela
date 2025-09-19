@@ -11,23 +11,49 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/use-auth';
 import { Badge } from '@/components/ui/badge';
-import { Copy } from 'lucide-react';
+import { Copy, Send } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
+import { useState } from 'react';
 
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const { toast } = useToast();
+  const [sendAmount, setSendAmount] = useState('');
+  const [recipient, setRecipient] = useState('');
+
 
   if (!user) return null;
 
   const copyReferralCode = () => {
     navigator.clipboard.writeText(user.referralCode);
     toast({ title: 'Copied!', description: 'Referral code copied to clipboard.' });
+  };
+  
+  const handleSendKtc = (e: React.FormEvent) => {
+    e.preventDefault();
+    const amount = parseFloat(sendAmount);
+    if (isNaN(amount) || amount <= 0) {
+      toast({ title: 'Invalid Amount', description: 'Please enter a valid amount to send.', variant: 'destructive' });
+      return;
+    }
+    if (!recipient) {
+      toast({ title: 'Invalid Recipient', description: 'Please enter a recipient ID.', variant: 'destructive' });
+      return;
+    }
+    if (amount > user.ktc) {
+      toast({ title: 'Insufficient Funds', description: 'You do not have enough KTC to make this transfer.', variant: 'destructive' });
+      return;
+    }
+
+    // Simulate transfer
+    updateUser({ ktc: user.ktc - amount });
+    toast({ title: 'Transfer Successful', description: `${amount} KTC sent to ${recipient}` });
+    setSendAmount('');
+    setRecipient('');
   };
 
   return (
@@ -105,16 +131,19 @@ export default function ProfilePage() {
               <TabsTrigger value="withdraw">Withdraw</TabsTrigger>
             </TabsList>
             <TabsContent value="send" className="pt-4">
-              <form className="space-y-4">
-                <div>
+              <form className="space-y-4" onSubmit={handleSendKtc}>
+                <div className="space-y-2">
                   <Label htmlFor="recipient">Recipient ID</Label>
-                  <Input id="recipient" placeholder="KOTELA-..." />
+                  <Input id="recipient" placeholder="KOTELA-..." value={recipient} onChange={(e) => setRecipient(e.target.value)} />
                 </div>
-                <div>
+                <div className="space-y-2">
                   <Label htmlFor="amount-send">Amount</Label>
-                  <Input id="amount-send" type="number" placeholder="0.00 KTC" />
+                  <Input id="amount-send" type="number" placeholder="0.00 KTC" value={sendAmount} onChange={(e) => setSendAmount(e.target.value)} />
                 </div>
-                <Button className="w-full">Send KTC</Button>
+                <Button className="w-full">
+                  <Send className="mr-2" />
+                  Send KTC
+                </Button>
               </form>
             </TabsContent>
             <TabsContent value="topup" className="pt-4 text-center">

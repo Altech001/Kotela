@@ -6,7 +6,7 @@ type AuthContextType = {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string) => Promise<void>;
+  signup: (email: string, password: string, extraData?: Partial<User>) => Promise<void>;
   logout: () => void;
   updateUser: (data: Partial<User>) => void;
 };
