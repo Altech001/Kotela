@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from 'react';
@@ -24,7 +25,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { BlogWidget } from '@/components/blog-widget';
 import { useGame } from '@/hooks/use-game';
 import { useAuth } from '@/hooks/use-auth';
-import { storeItems } from '@/lib/data';
 
 export default function Home() {
   const { user } = useAuth();
@@ -54,8 +54,8 @@ export default function Home() {
   return (
     <div className="flex flex-col min-h-[calc(100vh-4rem)] bg-background">
       <header className="py-4">
-        <div className="container mx-auto flex w-full flex-col items-start sm:flex-row sm:items-start justify-between gap-4">
-            <div className="mr-auto">
+        <div className="container mx-auto flex w-full flex-col items-start justify-between gap-4">
+            <div className="w-full">
                  <h1 className="text-2xl font-bold tracking-tight text-primary font-headline">
                     Mine
                 </h1>
@@ -73,11 +73,12 @@ export default function Home() {
                     Tap to mine. Use boosts to get a high score!
                 </p>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="w-full flex items-center justify-between">
                 <div className="flex items-center justify-end gap-2 text-lg font-bold text-primary px-2">
                     <Coins className="w-5 h-5 text-yellow-500"/>
                     <span className='text-lg'>{user?.ktc.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                 </div>
+                <div className="flex items-center gap-4">
                  <Dialog open={isBotDialogOpen} onOpenChange={setIsBotDialogOpen}>
                     <DialogTrigger asChild>
                         <Button variant="outline" size="sm">
@@ -157,6 +158,7 @@ export default function Home() {
                         </ScrollArea>
                     </DialogContent>
                 </Dialog>
+              </div>
             </div>
         </div>
       </header>
