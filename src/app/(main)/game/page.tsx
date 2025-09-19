@@ -70,7 +70,7 @@ export default function Home() {
                     )}
                 </div>
                 <p className="text-sm text-muted-foreground max-w-xs mt-2">
-                    Tap the coin to start mining. Use boosts to get a high score!
+                    Tap to mine. Use boosts to get a high score!
                 </p>
             </div>
             <div className="flex items-center gap-4">
@@ -88,7 +88,7 @@ export default function Home() {
                       <DialogHeader>
                         <DialogTitle>Trading Bots</DialogTitle>
                         <DialogDescription>
-                          Choose a bot to automate your trading strategy.
+                          Choose a bot to automate your trades.
                         </DialogDescription>
                       </DialogHeader>
                       <div className="space-y-4 pt-4">
@@ -123,7 +123,7 @@ export default function Home() {
                                 Verification Required
                             </DialogTitle>
                             <DialogDescription>
-                                You must complete KYC (Know Your Customer) verification before you can use trading bots.
+                                You must complete KYC verification to use trading bots.
                             </DialogDescription>
                         </DialogHeader>
                         <DialogFooter>
@@ -172,7 +172,7 @@ export default function Home() {
                 <Leaderboard />
                 <div className="p-4 border rounded-lg">
                     <h3 className="text-base font-semibold mb-1 flex items-center gap-2"><Rocket/> My Boosts</h3>
-                    <p className="text-xs text-muted-foreground mb-3">Activate these power-ups during a game by clicking the buttons below the mining coin.</p>
+                    <p className="text-xs text-muted-foreground mb-3">Activate boosts during a game.</p>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                         <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
                             <Zap className="w-4 h-4 text-yellow-500"/>

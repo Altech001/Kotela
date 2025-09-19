@@ -44,7 +44,7 @@ export default function ProfilePage() {
 
   const copyToClipboard = (text: string, subject: string) => {
     navigator.clipboard.writeText(text);
-    toast({ title: 'Copied!', description: `${subject} copied to clipboard.` });
+    toast({ title: 'Copied!', description: `${subject} copied.` });
   };
   
   const handleSendKtc = async (e: React.FormEvent) => {
@@ -52,17 +52,17 @@ export default function ProfilePage() {
     setIsSending(true);
     const amount = parseFloat(sendAmount);
     if (isNaN(amount) || amount <= 0) {
-      toast({ title: 'Invalid Amount', description: 'Please enter a valid amount to send.', variant: 'destructive' });
+      toast({ title: 'Invalid Amount', description: 'Please enter a valid amount.', variant: 'destructive' });
       setIsSending(false);
       return;
     }
     if (!recipient) {
-      toast({ title: 'Invalid Recipient', description: 'Please enter a recipient ID or wallet address.', variant: 'destructive' });
+      toast({ title: 'Invalid Recipient', description: 'Please enter a recipient.', variant: 'destructive' });
       setIsSending(false);
       return;
     }
     if (amount > user.ktc) {
-      toast({ title: 'Insufficient Funds', description: 'You do not have enough KTC to make this transfer.', variant: 'destructive' });
+      toast({ title: 'Insufficient Funds', description: 'You do not have enough KTC.', variant: 'destructive' });
       setIsSending(false);
       return;
     }
@@ -82,7 +82,7 @@ export default function ProfilePage() {
   const handleAddWallet = async () => {
     try {
         await addWalletAddress();
-        toast({ title: 'Success', description: 'New wallet address created.' });
+        toast({ title: 'Success', description: 'New wallet created.' });
     } catch (error: any) {
         toast({ title: 'Error', description: error.message, variant: 'destructive' });
     }
@@ -140,7 +140,7 @@ export default function ProfilePage() {
         <Card>
           <CardHeader>
             <CardTitle>My Wallet</CardTitle>
-            <CardDescription>Your current KTC balance and wallet addresses.</CardDescription>
+            <CardDescription>Your current KTC balance.</CardDescription>
           </CardHeader>
           <CardContent>
              <p className="text-5xl font-bold tracking-tighter">
@@ -155,7 +155,7 @@ export default function ProfilePage() {
                      <div key={address} className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Wallet className="w-4 h-4" />
                         <span className="font-mono flex-1 truncate">{address}</span>
-                        <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => copyToClipboard(address, 'Wallet Address')}>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => copyToClipboard(address, 'Address')}>
                             <Copy className="h-4 w-4" />
                         </Button>
                     </div>
@@ -171,14 +171,14 @@ export default function ProfilePage() {
                 <PlusCircle className="mr-2" />
                 Add New Address
             </Button>
-             {walletAddresses.length >= 5 && <p className='text-xs text-muted-foreground text-center mt-2'>You have reached the maximum number of wallet addresses.</p>}
+             {walletAddresses.length >= 5 && <p className='text-xs text-muted-foreground text-center mt-2'>Max wallet addresses reached.</p>}
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
             <CardTitle>Referral Program</CardTitle>
             <CardDescription>
-              Share your code and earn rewards.
+              Share your code and earn KTC.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex items-center gap-4">
@@ -198,7 +198,7 @@ export default function ProfilePage() {
         <CardHeader>
           <CardTitle>Wallet Actions</CardTitle>
           <CardDescription>
-            Manage your Kotela Coin (KTC) funds.
+            Manage your KTC funds.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -212,8 +212,8 @@ export default function ProfilePage() {
             <TabsContent value="send" className="pt-4">
               <form className="space-y-4" onSubmit={handleSendKtc}>
                 <div className="space-y-2">
-                  <Label htmlFor="recipient">Recipient Wallet Address or Referral Code</Label>
-                  <Input id="recipient" placeholder="KTC_... or KOTELA-..." value={recipient} onChange={(e) => setRecipient(e.target.value)} />
+                  <Label htmlFor="recipient">Recipient</Label>
+                  <Input id="recipient" placeholder="Wallet address or referral code" value={recipient} onChange={(e) => setRecipient(e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="amount-send">Amount</Label>

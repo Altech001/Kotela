@@ -28,7 +28,7 @@ export default function KycPage() {
       <div className="container mx-auto flex flex-col items-center justify-center text-center space-y-4 h-full">
         <CheckCircle className="w-16 h-16 text-green-500" />
         <h1 className="text-2xl font-bold">You are already verified!</h1>
-        <p className="text-muted-foreground">You have full access to all features of Kotela.</p>
+        <p className="text-muted-foreground">You have full access to Kotela features.</p>
         <Button asChild><Link href="/profile">Go to Profile</Link></Button>
       </div>
     )
@@ -50,7 +50,7 @@ export default function KycPage() {
         <CardHeader>
           <CardTitle>Identity Verification (KYC)</CardTitle>
           <CardDescription>
-            Complete the steps to verify your identity and unlock all features.
+            Verify your identity to unlock all features.
           </CardDescription>
           <Progress value={progress} className="mt-4" />
         </CardHeader>
@@ -58,7 +58,7 @@ export default function KycPage() {
         <CardContent>
           {step === 'personal' && (
             <div className="space-y-4">
-              <h3 className="font-semibold text-lg">Step 1: Personal Information</h3>
+              <h3 className="font-semibold text-lg">Step 1: Personal Info</h3>
               <div className="space-y-2">
                 <Label htmlFor="fullName">Full Name</Label>
                 <Input id="fullName" placeholder="John Doe" />
@@ -100,10 +100,10 @@ export default function KycPage() {
           {step === 'id' && (
             <div className="space-y-4 text-center">
               <h3 className="font-semibold text-lg">Step 3: Document Upload</h3>
-              <p className="text-sm text-muted-foreground">Use your camera to take a picture of your government-issued ID.</p>
+              <p className="text-sm text-muted-foreground">Take a picture of your government ID.</p>
               <div className="aspect-video w-full rounded-md border-2 border-dashed flex flex-col items-center justify-center bg-muted/50">
                   <Camera className="w-16 h-16 text-muted-foreground" />
-                  <p className="mt-2 text-muted-foreground">Camera functionality is simulated</p>
+                  <p className="mt-2 text-muted-foreground">Camera is simulated</p>
               </div>
                <div className="flex gap-4">
                 <Button onClick={() => nextStep('address', 50)} variant="outline" className="w-full">Back</Button>
@@ -115,10 +115,10 @@ export default function KycPage() {
           {step === 'review' && (
             <div className="space-y-4">
               <h3 className="font-semibold text-lg">Step 4: Review and Submit</h3>
-              <p className="text-sm text-muted-foreground">Please review your information. This is a simulation, so submitting will instantly verify your account.</p>
+              <p className="text-sm text-muted-foreground">Review your information. This is a simulation and will instantly verify you.</p>
               <div className="flex gap-4">
                 <Button onClick={() => nextStep('id', 75)} variant="outline" className="w-full">Back</Button>
-                <Button onClick={handleComplete} className="w-full">Submit for Verification</Button>
+                <Button onClick={handleComplete} className="w-full">Submit</Button>
               </div>
             </div>
           )}
@@ -127,7 +127,7 @@ export default function KycPage() {
              <div className="space-y-4 text-center">
                 <CheckCircle className="w-16 h-16 text-green-500 mx-auto" />
                 <h3 className="font-semibold text-lg">Verification Complete!</h3>
-                <p className="text-sm text-muted-foreground">Thank you. Your identity has been verified.</p>
+                <p className="text-sm text-muted-foreground">Your identity has been verified.</p>
                 <Button asChild className="w-full"><Link href="/profile">Go to Profile</Link></Button>
              </div>
           )}
