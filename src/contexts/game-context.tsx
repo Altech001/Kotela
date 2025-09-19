@@ -21,7 +21,7 @@ interface GameContextType {
 
 const GAME_DURATION = 30;
 
-const GameContext = createContext<GameContextType | undefined>(undefined);
+export const GameContext = createContext<GameContextType | undefined>(undefined);
 
 export function GameProvider({ children }: { children: ReactNode }) {
   const { user, updateUser, addTransaction } = useAuth();
