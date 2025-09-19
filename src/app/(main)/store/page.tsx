@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -9,6 +10,16 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { storeItems } from '@/lib/data';
 import { useGame } from '@/hooks/use-game';
@@ -27,13 +38,22 @@ export default function StorePage() {
   const { buyBoost } = useGame();
   const { user } = useAuth();
   const { toast } = useToast();
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<Boost | null>(null);
 
-  const handleBuy = (item: Boost) => {
-    const success = buyBoost(item);
+  const handleBuyClick = (item: Boost) => {
+    setSelectedItem(item);
+    setShowConfirmDialog(true);
+  };
+
+  const confirmPurchase = () => {
+    if (!selectedItem) return;
+
+    const success = buyBoost(selectedItem);
     if (success) {
       toast({
         title: 'Purchase Successful!',
-        description: `You've bought ${item.name}.`,
+        description: `You've bought ${selectedItem.name}.`,
       });
     } else {
       toast({
@@ -42,6 +62,9 @@ export default function StorePage() {
         variant: 'destructive',
       });
     }
+
+    setShowConfirmDialog(false);
+    setSelectedItem(null);
   };
 
   return (
@@ -72,7 +95,7 @@ export default function StorePage() {
               </CardHeader>
               <CardContent className="flex-1"></CardContent>
               <CardFooter>
-                <Button className="w-full" onClick={() => handleBuy(item)}>
+                <Button className="w-full" onClick={() => handleBuyClick(item)}>
                   Buy for {item.cost} KTC
                 </Button>
               </CardFooter>
@@ -80,6 +103,21 @@ export default function StorePage() {
           );
         })}
       </div>
+      
+      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Purchase</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to buy {selectedItem?.name} for {selectedItem?.cost} KTC?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmPurchase}>Confirm</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
