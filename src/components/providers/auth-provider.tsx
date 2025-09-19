@@ -2,7 +2,7 @@
 
 import { useState, useCallback, ReactNode, useEffect } from 'react';
 import { AuthContext } from '@/contexts/auth-context';
-import type { User } from '@/lib/types';
+import type { User, Transaction } from '@/lib/types';
 import { auth, db } from '@/lib/firebase';
 import {
   onAuthStateChanged,
@@ -11,7 +11,7 @@ import {
   signOut,
   User as FirebaseUser,
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs, writeBatch } from 'firebase/firestore';
 
 
 const createUserObject = (firebaseUser: FirebaseUser, extraData: Partial<User> = {}): User => ({
@@ -64,15 +64,59 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  const signup = useCallback(async (email: string, password: string, extraData: Partial<User> = {}) => {
+  const signup = useCallback(async (email: string, password: string, extraData: Partial<User> & { referralCode?: string } = {}) => {
     setLoading(true);
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const firebaseUser = userCredential.user;
       
       const newUser = createUserObject(firebaseUser, extraData);
+
+      const batch = writeBatch(db);
+
+      // Handle referral bonus
+      if (extraData.referralCode) {
+        const usersRef = collection(db, 'users');
+        const q = query(usersRef, where('referralCode', '==', extraData.referralCode));
+        const querySnapshot = await getDocs(q);
+        
+        if (!querySnapshot.empty) {
+          const referrerDoc = querySnapshot.docs[0];
+          const referrerData = referrerDoc.data() as User;
+
+          const REFERRER_BONUS = 250;
+          const NEW_USER_BONUS = 100;
+
+          // Award bonus to new user
+          newUser.ktc += NEW_USER_BONUS;
+          const newUserBonusTx: Transaction = {
+            id: `tx-${Date.now()}-signup-bonus`,
+            type: 'deposit',
+            amount: NEW_USER_BONUS,
+            timestamp: new Date().toISOString(),
+            description: 'Referral signup bonus',
+          };
+          newUser.transactions.push(newUserBonusTx);
+
+          // Award bonus to referrer
+          const referrerRef = doc(db, 'users', referrerDoc.id);
+          const newReferrerKtc = referrerData.ktc + REFERRER_BONUS;
+          const referrerBonusTx: Transaction = {
+            id: `tx-${Date.now()}-referral-bonus`,
+            type: 'deposit',
+            amount: REFERRER_BONUS,
+            timestamp: new Date().toISOString(),
+            description: `Referral bonus for ${newUser.email}`,
+          };
+          const newReferrerTransactions = [...(referrerData.transactions || []), referrerBonusTx];
+          batch.update(referrerRef, { ktc: newReferrerKtc, transactions: newReferrerTransactions });
+        }
+      }
       
-      await setDoc(doc(db, 'users', firebaseUser.uid), newUser);
+      const newUserRef = doc(db, 'users', firebaseUser.uid)
+      batch.set(newUserRef, newUser);
+
+      await batch.commit();
       
       // onAuthStateChanged will handle setting user state, but we can set it here for faster UI update
       setUser(newUser);
