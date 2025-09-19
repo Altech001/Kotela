@@ -1,10 +1,12 @@
+
 'use server';
 
 import { analyzePrivacyRisks } from '@/ai/flows/privacy-risk-analysis';
 import { backgroundMiningSummary } from '@/ai/flows/background-mining-summary';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, orderBy, query } from 'firebase/firestore';
-import type { User } from '@/lib/types';
+import { collection, getDocs, orderBy, query, addDoc, serverTimestamp, where } from 'firebase/firestore';
+import type { User, Comment } from '@/lib/types';
+import { revalidatePath } from 'next/cache';
 
 export async function runPrivacyAnalysis(gameplayData: string) {
   try {
@@ -54,4 +56,45 @@ export async function getLeaderboard() {
     console.error('Error fetching leaderboard data:', error);
     return [];
   }
+}
+
+export async function getComments(postId: string): Promise<Comment[]> {
+  try {
+    const commentsRef = collection(db, 'comments');
+    const q = query(commentsRef, where('postId', '==', postId), orderBy('date', 'desc'));
+    const querySnapshot = await getDocs(q);
+    const comments: Comment[] = [];
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      comments.push({
+        id: doc.id,
+        postId: data.postId,
+        userId: data.userId,
+        author: data.author,
+        authorImage: data.authorImage,
+        date: data.date.toDate().toISOString(),
+        content: data.content,
+      });
+    });
+    return comments;
+  } catch (error) {
+    console.error("Error fetching comments:", error);
+    return [];
+  }
+}
+
+export async function addComment(comment: Omit<Comment, 'id' | 'date'>): Promise<Comment> {
+    const newComment = {
+        ...comment,
+        date: serverTimestamp()
+    };
+    const docRef = await addDoc(collection(db, "comments"), newComment);
+
+    revalidatePath('/news');
+
+    return {
+        ...comment,
+        id: docRef.id,
+        date: new Date().toISOString()
+    };
 }

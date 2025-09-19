@@ -1,4 +1,6 @@
+import type { Comment } from '@/lib/types';
 export type BlogPost = {
+  id: string;
   title: string;
   category: string;
   date: string;
@@ -10,16 +12,12 @@ export type BlogPost = {
   authorImage: string;
   image: string;
   imageHint: string;
-  comments: {
-    author: string;
-    authorImage: string;
-    date: string;
-    content: string;
-  }[];
+  comments: Comment[];
 };
 
 export const blogPosts: BlogPost[] = [
   {
+    id: "welcome-kotela-news",
     title: "Welcome to the New Kotela News Hub!",
     category: "Community",
     date: "July 31, 2024",
@@ -33,16 +31,10 @@ export const blogPosts: BlogPost[] = [
     authorImage: "https://api.dicebear.com/9.x/bottts/svg?seed=kotela-team",
     image: "https://picsum.photos/seed/news1/600/400",
     imageHint: "celebration confetti",
-    comments: [
-      {
-        author: "CryptoKing",
-        authorImage: "https://api.dicebear.com/9.x/bottts/svg?seed=user1",
-        date: "July 31, 2024",
-        content: "Looks great! Very slick design.",
-      },
-    ],
+    comments: [],
   },
   {
+    id: "tiered-referrals",
     title: "The Power of Tiered Referrals",
     category: "Game Updates",
     date: "July 30, 2024",
@@ -56,22 +48,10 @@ export const blogPosts: BlogPost[] = [
     authorImage: "https://api.dicebear.com/9.x/bottts/svg?seed=dev-team",
     image: "https://picsum.photos/seed/news4/600/400",
     imageHint: "network connections",
-    comments: [
-        {
-            author: "CoinMaster",
-            authorImage: "https://api.dicebear.com/9.x/bottts/svg?seed=user2",
-            date: "July 30, 2024",
-            content: "This is a game-changer! Time to start building my network.",
-        },
-        {
-            author: "SatoshiJr",
-            authorImage: "https://api.dicebear.com/9.x/bottts/svg?seed=user3",
-            date: "July 30, 2024",
-            content: "Awesome update, more ways to earn KTC is always a good thing.",
-        }
-    ],
+    comments: [],
   },
    {
+    id: "mining-bots",
     title: 'New Mining Bots in Store',
     category: "Store",
     date: 'July 28, 2024',

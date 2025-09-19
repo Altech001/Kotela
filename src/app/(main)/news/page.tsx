@@ -1,13 +1,14 @@
+
 "use client"
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import { ChevronRight, Newspaper, ArrowRight, MessageSquare } from 'lucide-react';
+import { ChevronRight, Newspaper, ArrowRight, MessageSquare, Loader2 } from 'lucide-react';
 import { blogPosts, type BlogPost } from '@/lib/blog-widget';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -22,21 +23,63 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { useAuth } from '@/hooks/use-auth';
+import type { Comment } from '@/lib/types';
+import { getComments, addComment } from '@/lib/actions';
+import { formatDistanceToNow } from 'date-fns';
 
 const StandaloneCommentSection = ({ post }: { post: BlogPost }) => {
-    const [comments, setComments] = useState(post.comments || []);
+    const { user } = useAuth();
+    const [comments, setComments] = useState<Comment[]>([]);
     const [newComment, setNewComment] = useState('');
+    const [isLoading, setIsLoading] = useState(true);
+    const [isPosting, setIsPosting] = useState(false);
 
-    const handlePostComment = () => {
-        if (newComment.trim() === '') return;
-        const commentToAdd = {
-            author: "You",
-            authorImage: "https://api.dicebear.com/9.x/bottts/svg?seed=kotela-user-123",
-            date: "Just now",
+    useEffect(() => {
+      const fetchComments = async () => {
+          setIsLoading(true);
+          const fetchedComments = await getComments(post.id);
+          setComments(fetchedComments);
+          setIsLoading(false);
+      };
+      fetchComments();
+    }, [post.id]);
+
+    const handlePostComment = async () => {
+        if (newComment.trim() === '' || !user) return;
+
+        setIsPosting(true);
+        const optimisticComment: Comment = {
+            id: `optimistic-${Date.now()}`,
+            postId: post.id,
+            userId: user.id,
+            author: user.name,
+            authorImage: user.avatarUrl,
+            date: new Date().toISOString(),
             content: newComment,
         };
-        setComments([commentToAdd, ...comments]);
+        
+        setComments([optimisticComment, ...comments]);
         setNewComment('');
+
+        try {
+            const savedComment = await addComment({
+                postId: post.id,
+                userId: user.id,
+                author: user.name,
+                authorImage: user.avatarUrl,
+                content: newComment,
+            });
+            // Replace optimistic comment with the real one from the server
+            setComments(currentComments => currentComments.map(c => c.id === optimisticComment.id ? savedComment : c));
+        } catch (error) {
+            console.error("Failed to post comment:", error);
+            // Revert optimistic update on failure
+            setComments(currentComments => currentComments.filter(c => c.id !== optimisticComment.id));
+            setNewComment(optimisticComment.content);
+        } finally {
+            setIsPosting(false);
+        }
     };
 
     return (
@@ -48,29 +91,37 @@ const StandaloneCommentSection = ({ post }: { post: BlogPost }) => {
                 </CardTitle>
             </CardHeader>
             <ScrollArea className="h-[calc(100%-15rem)] md:h-[calc(100vh-25rem)]">
-                <div className="p-4 space-y-4">
-                    {comments.map((comment, index) => (
-                        <div key={index} className="flex gap-3">
-                            <Avatar>
-                                <AvatarImage src={comment.authorImage} alt={comment.author} />
-                                <AvatarFallback>{comment.author.substring(0, 2)}</AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1">
-                                <div className="flex items-baseline gap-2">
-                                    <p className="font-semibold text-sm">{comment.author}</p>
-                                    <p className="text-xs text-muted-foreground">{comment.date}</p>
+                 {isLoading ? (
+                    <div className="flex items-center justify-center p-8">
+                        <Loader2 className="animate-spin text-muted-foreground" />
+                    </div>
+                ) : (
+                    <div className="p-4 space-y-4">
+                        {comments.map((comment) => (
+                            <div key={comment.id} className="flex gap-3">
+                                <Avatar>
+                                    <AvatarImage src={comment.authorImage} alt={comment.author} />
+                                    <AvatarFallback>{comment.author.substring(0, 2)}</AvatarFallback>
+                                </Avatar>
+                                <div className="flex-1">
+                                    <div className="flex items-baseline gap-2">
+                                        <p className="font-semibold text-sm">{comment.author}</p>
+                                        <p className="text-xs text-muted-foreground">
+                                            {formatDistanceToNow(new Date(comment.date), { addSuffix: true })}
+                                        </p>
+                                    </div>
+                                    <p className="text-sm text-foreground/90 mt-1">{comment.content}</p>
                                 </div>
-                                <p className="text-sm text-foreground/90 mt-1">{comment.content}</p>
                             </div>
-                        </div>
-                    ))}
-                </div>
+                        ))}
+                    </div>
+                )}
             </ScrollArea>
              <CardFooter className="p-4 border-t flex-col items-stretch gap-2">
                  <div className="flex gap-3">
                     <Avatar>
-                        <AvatarImage src="https://api.dicebear.com/9.x/bottts/svg?seed=kotela-user-123" />
-                        <AvatarFallback>You</AvatarFallback>
+                        <AvatarImage src={user?.avatarUrl} />
+                        <AvatarFallback>{user?.name.charAt(0)}</AvatarFallback>
                     </Avatar>
                     <Textarea 
                         placeholder="Add your comment..." 
@@ -78,10 +129,14 @@ const StandaloneCommentSection = ({ post }: { post: BlogPost }) => {
                         onChange={(e) => setNewComment(e.target.value)}
                         className="flex-1"
                         rows={2}
+                        disabled={!user || isPosting}
                     />
                 </div>
                 <div className="flex justify-end">
-                    <Button onClick={handlePostComment} disabled={!newComment.trim()} size="sm">Post Comment</Button>
+                    <Button onClick={handlePostComment} disabled={!newComment.trim() || !user || isPosting} size="sm">
+                        {isPosting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Post Comment
+                    </Button>
                 </div>
             </CardFooter>
         </>
@@ -227,7 +282,7 @@ export default function NewsPage() {
 
                 <div className="space-y-4">
                     {blogPosts.map((post) => (
-                        <Dialog key={post.title}>
+                        <Dialog key={post.id}>
                              <Card>
                                 <CardHeader>
                                     <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
@@ -291,12 +346,12 @@ export default function NewsPage() {
                         <div className="flex flex-col">
                             {blogPosts.map((post) => (
                                 <button
-                                    key={post.title}
+                                    key={post.id}
                                     onMouseEnter={() => handleSelectPost(post)}
                                     onClick={() => handleSelectPost(post)}
                                     className={cn(
                                         "text-left p-4 border-b hover:bg-muted/50 transition-colors",
-                                        selectedPost.title === post.title && "bg-muted"
+                                        selectedPost.id === post.id && "bg-muted"
                                     )}
                                 >
                                     <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">

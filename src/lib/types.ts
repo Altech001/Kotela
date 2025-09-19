@@ -1,3 +1,4 @@
+
 export type User = {
   id: string;
   email: string;
@@ -13,7 +14,7 @@ export type User = {
 };
 
 export type Boost = {
-  id: string;
+  id:string;
   name: string;
   description: string;
   cost: number;
@@ -53,3 +54,13 @@ export type NewsItem = {
   imageUrl: string;
   imageHint: string;
 };
+
+export type Comment = {
+  id: string;
+  postId: string;
+  userId: string;
+  author: string;
+  authorImage: string;
+  date: string; // ISO String
+  content: string;
+}
