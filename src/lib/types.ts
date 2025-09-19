@@ -8,7 +8,7 @@ export type User = {
   transactions: Transaction[];
   referralCode: string;
   isKycVerified: boolean;
-  walletAddress: string;
+  walletAddresses: string[];
 };
 
 export type Boost = {

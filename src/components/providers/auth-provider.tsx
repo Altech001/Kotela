@@ -14,6 +14,8 @@ import {
 import { doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs, writeBatch, arrayUnion, runTransaction, or } from 'firebase/firestore';
 
 
+const createWalletAddress = (uid: string) => `KTC_${uid.slice(0, 4)}${Date.now().toString(36).slice(-4)}${Math.random().toString(36).slice(2, 6)}`;
+
 const createUserObject = (firebaseUser: FirebaseUser, extraData: Partial<User> = {}): User => ({
   id: firebaseUser.uid,
   email: firebaseUser.email || 'no-email@example.com',
@@ -23,7 +25,7 @@ const createUserObject = (firebaseUser: FirebaseUser, extraData: Partial<User> =
   boosts: [],
   transactions: [],
   referralCode: `KOTELA-${firebaseUser.uid.slice(0, 8).toUpperCase()}`,
-  walletAddress: `KTC_${firebaseUser.uid.slice(0, 4)}${Date.now().toString(36).slice(-4)}`,
+  walletAddresses: [createWalletAddress(firebaseUser.uid)],
   isKycVerified: false,
   ...extraData,
 });
@@ -169,7 +171,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const transferKtc = useCallback(async (recipientIdentifier: string, amount: number) => {
     if (!user) throw new Error("You must be logged in to transfer KTC.");
-    if (recipientIdentifier === user.referralCode || recipientIdentifier === user.walletAddress) {
+    if (recipientIdentifier === user.referralCode || user.walletAddresses.includes(recipientIdentifier)) {
       throw new Error("You cannot send KTC to yourself.");
     }
 
@@ -180,7 +182,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             // Get recipient by either referral code or wallet address
             const recipientQuery = query(usersRef, or(
                 where('referralCode', '==', recipientIdentifier),
-                where('walletAddress', '==', recipientIdentifier)
+                where('walletAddresses', 'array-contains', recipientIdentifier)
             ));
             const recipientSnapshot = await getDocs(recipientQuery);
 
@@ -250,8 +252,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [user]);
 
+  const addWalletAddress = useCallback(async () => {
+    if (user && user.walletAddresses.length < 5) {
+      const newAddress = createWalletAddress(user.id);
+      const newAddresses = [...user.walletAddresses, newAddress];
+      await updateUser({ walletAddresses: newAddresses });
+    }
+  }, [user, updateUser]);
 
-  const value = { user, loading, login, signup, logout, updateUser, addTransaction, transferKtc };
+
+  const value = { user, loading, login, signup, logout, updateUser, addTransaction, transferKtc, addWalletAddress };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

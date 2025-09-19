@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/use-auth';
 import { Badge } from '@/components/ui/badge';
-import { Copy, Send, ArrowUpCircle, ArrowDownCircle, ShoppingCart, Bot, Loader2, Wallet } from 'lucide-react';
+import { Copy, Send, ArrowUpCircle, ArrowDownCircle, ShoppingCart, Bot, Loader2, Wallet, PlusCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { useState } from 'react';
@@ -33,7 +33,7 @@ const transactionIcons = {
 };
 
 export default function ProfilePage() {
-  const { user, updateUser, transferKtc } = useAuth();
+  const { user, updateUser, transferKtc, addWalletAddress } = useAuth();
   const { toast } = useToast();
   const [sendAmount, setSendAmount] = useState('');
   const [recipient, setRecipient] = useState('');
@@ -78,6 +78,15 @@ export default function ProfilePage() {
         setIsSending(false);
     }
   };
+
+  const handleAddWallet = async () => {
+    try {
+        await addWalletAddress();
+        toast({ title: 'Success', description: 'New wallet address created.' });
+    } catch (error: any) {
+        toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
+  }
 
   const sortedTransactions = user.transactions ? [...user.transactions].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()) : [];
 
@@ -128,7 +137,7 @@ export default function ProfilePage() {
         <Card>
           <CardHeader>
             <CardTitle>My Wallet</CardTitle>
-            <CardDescription>Your current KTC balance and wallet address.</CardDescription>
+            <CardDescription>Your current KTC balance and wallet addresses.</CardDescription>
           </CardHeader>
           <CardContent>
              <p className="text-5xl font-bold tracking-tighter">
@@ -138,13 +147,28 @@ export default function ProfilePage() {
               })}{' '}
               <span className="text-2xl text-muted-foreground">KTC</span>
             </p>
-            <div className="flex items-center gap-2 mt-4 text-sm text-muted-foreground">
-                <Wallet className="w-4 h-4" />
-                <span className="font-mono">{user.walletAddress}</span>
-                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(user.walletAddress, 'Wallet Address')}>
-                    <Copy className="h-4 w-4" />
-                </Button>
+            <div className="space-y-2 mt-4">
+                {user.walletAddresses.map((address) => (
+                     <div key={address} className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Wallet className="w-4 h-4" />
+                        <span className="font-mono flex-1 truncate">{address}</span>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => copyToClipboard(address, 'Wallet Address')}>
+                            <Copy className="h-4 w-4" />
+                        </Button>
+                    </div>
+                ))}
             </div>
+            <Button 
+                variant="outline" 
+                size="sm" 
+                className="mt-4 w-full" 
+                onClick={handleAddWallet}
+                disabled={user.walletAddresses.length >= 5}
+            >
+                <PlusCircle className="mr-2" />
+                Add New Address
+            </Button>
+             {user.walletAddresses.length >= 5 && <p className='text-xs text-muted-foreground text-center mt-2'>You have reached the maximum number of wallet addresses.</p>}
           </CardContent>
         </Card>
         <Card>
