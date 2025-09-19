@@ -11,7 +11,7 @@ import {
   signOut,
   User as FirebaseUser,
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs, writeBatch, arrayUnion, runTransaction } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs, writeBatch, arrayUnion, runTransaction, or } from 'firebase/firestore';
 
 
 const createUserObject = (firebaseUser: FirebaseUser, extraData: Partial<User> = {}): User => ({
@@ -23,6 +23,7 @@ const createUserObject = (firebaseUser: FirebaseUser, extraData: Partial<User> =
   boosts: [],
   transactions: [],
   referralCode: `KOTELA-${firebaseUser.uid.slice(0, 8).toUpperCase()}`,
+  walletAddress: `KTC_${firebaseUser.uid.slice(0, 4)}${Date.now().toString(36).slice(-4)}`,
   isKycVerified: false,
   ...extraData,
 });
@@ -166,16 +167,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [user]);
 
-  const transferKtc = useCallback(async (recipientReferralCode: string, amount: number) => {
+  const transferKtc = useCallback(async (recipientIdentifier: string, amount: number) => {
     if (!user) throw new Error("You must be logged in to transfer KTC.");
-    if (recipientReferralCode === user.referralCode) throw new Error("You cannot send KTC to yourself.");
+    if (recipientIdentifier === user.referralCode || recipientIdentifier === user.walletAddress) {
+      throw new Error("You cannot send KTC to yourself.");
+    }
 
     try {
         await runTransaction(db, async (transaction) => {
             const usersRef = collection(db, 'users');
             
-            // Get recipient
-            const recipientQuery = query(usersRef, where('referralCode', '==', recipientReferralCode));
+            // Get recipient by either referral code or wallet address
+            const recipientQuery = query(usersRef, or(
+                where('referralCode', '==', recipientIdentifier),
+                where('walletAddress', '==', recipientIdentifier)
+            ));
             const recipientSnapshot = await getDocs(recipientQuery);
 
             if (recipientSnapshot.empty) {

@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/use-auth';
 import { Badge } from '@/components/ui/badge';
-import { Copy, Send, ArrowUpCircle, ArrowDownCircle, ShoppingCart, Bot, Loader2 } from 'lucide-react';
+import { Copy, Send, ArrowUpCircle, ArrowDownCircle, ShoppingCart, Bot, Loader2, Wallet } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { useState } from 'react';
@@ -42,9 +42,9 @@ export default function ProfilePage() {
 
   if (!user) return null;
 
-  const copyReferralCode = () => {
-    navigator.clipboard.writeText(user.referralCode);
-    toast({ title: 'Copied!', description: 'Referral code copied to clipboard.' });
+  const copyToClipboard = (text: string, subject: string) => {
+    navigator.clipboard.writeText(text);
+    toast({ title: 'Copied!', description: `${subject} copied to clipboard.` });
   };
   
   const handleSendKtc = async (e: React.FormEvent) => {
@@ -128,16 +128,23 @@ export default function ProfilePage() {
         <Card>
           <CardHeader>
             <CardTitle>My Wallet</CardTitle>
-            <CardDescription>Your current KTC balance.</CardDescription>
+            <CardDescription>Your current KTC balance and wallet address.</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-5xl font-bold tracking-tighter">
+             <p className="text-5xl font-bold tracking-tighter">
               {user.ktc.toLocaleString(undefined, {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2,
               })}{' '}
               <span className="text-2xl text-muted-foreground">KTC</span>
             </p>
+            <div className="flex items-center gap-2 mt-4 text-sm text-muted-foreground">
+                <Wallet className="w-4 h-4" />
+                <span className="font-mono">{user.walletAddress}</span>
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(user.walletAddress, 'Wallet Address')}>
+                    <Copy className="h-4 w-4" />
+                </Button>
+            </div>
           </CardContent>
         </Card>
         <Card>
@@ -153,7 +160,7 @@ export default function ProfilePage() {
               value={user.referralCode}
               className="font-mono text-lg"
             />
-            <Button size="icon" variant="outline" onClick={copyReferralCode}>
+            <Button size="icon" variant="outline" onClick={() => copyToClipboard(user.referralCode, 'Referral code')}>
               <Copy className="h-4 w-4" />
             </Button>
           </CardContent>
@@ -178,8 +185,8 @@ export default function ProfilePage() {
             <TabsContent value="send" className="pt-4">
               <form className="space-y-4" onSubmit={handleSendKtc}>
                 <div className="space-y-2">
-                  <Label htmlFor="recipient">Recipient Referral Code</Label>
-                  <Input id="recipient" placeholder="KOTELA-..." value={recipient} onChange={(e) => setRecipient(e.target.value)} />
+                  <Label htmlFor="recipient">Recipient Wallet Address or Referral Code</Label>
+                  <Input id="recipient" placeholder="KTC_... or KOTELA-..." value={recipient} onChange={(e) => setRecipient(e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="amount-send">Amount</Label>

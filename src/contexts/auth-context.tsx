@@ -10,7 +10,7 @@ type AuthContextType = {
   logout: () => void;
   updateUser: (data: Partial<User>) => void;
   addTransaction: (transaction: Omit<Transaction, 'id' | 'timestamp'>) => Promise<void>;
-  transferKtc: (recipientReferralCode: string, amount: number) => Promise<void>;
+  transferKtc: (recipientIdentifier: string, amount: number) => Promise<void>;
 };
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
