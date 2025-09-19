@@ -18,10 +18,29 @@ import { useState, FormEvent, useEffect } from 'react';
 import { KotelaIcon } from '@/components/icons';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+// A small list of countries for the example
+const countries = [
+  { code: 'US', name: 'United States' },
+  { code: 'CA', name: 'Canada' },
+  { code: 'GB', name: 'United Kingdom' },
+  { code: 'AU', name: 'Australia' },
+  { code: 'DE', name: 'Germany' },
+  { code: 'FR', name: 'France' },
+  { code: 'JP', name: 'Japan' },
+  { code: 'IN', name: 'India' },
+  { code: 'BR', name: 'Brazil' },
+  { code: 'ZA', name: 'South Africa' },
+];
+
 
 export default function SignupPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [country, setCountry] = useState('');
   const [referral, setReferral] = useState('');
   const { signup, user, loading } = useAuth();
   const router = useRouter();
@@ -36,8 +55,17 @@ export default function SignupPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (password !== confirmPassword) {
+      toast({
+        title: 'Sign Up Failed',
+        description: 'Passwords do not match.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     try {
-      console.log('Signing up with referral code:', referral);
+      console.log('Signing up with:', { email, phoneNumber, country, referral });
       await signup(email, password);
     } catch (error: any) {
        toast({
@@ -77,6 +105,40 @@ export default function SignupPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="confirm-password">Confirm Password</Label>
+            <Input
+              id="confirm-password"
+              type="password"
+              required
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="phone-number">Phone Number</Label>
+            <Input
+              id="phone-number"
+              type="tel"
+              placeholder="+1 234 567 890"
+              required
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
+            />
+          </div>
+           <div className="space-y-2">
+            <Label htmlFor="country">Country</Label>
+            <Select onValueChange={setCountry} value={country} required>
+              <SelectTrigger id="country">
+                <SelectValue placeholder="Select your country" />
+              </SelectTrigger>
+              <SelectContent>
+                {countries.map((c) => (
+                  <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-2">
             <Label htmlFor="referral">Referral Code (Optional)</Label>
