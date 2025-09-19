@@ -1,3 +1,5 @@
+'use client';
+
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Card,
@@ -14,9 +16,27 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { leaderboardData } from '@/lib/data';
+import { getLeaderboard } from '@/lib/actions';
+import type { User } from '@/lib/types';
+import { useAuth } from '@/hooks/use-auth';
+import { useEffect, useState } from 'react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function LeaderboardPage() {
+  const { user: currentUser } = useAuth();
+  const [leaderboardData, setLeaderboardData] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchLeaderboard = async () => {
+      setLoading(true);
+      const users = await getLeaderboard();
+      setLeaderboardData(users);
+      setLoading(false);
+    };
+    fetchLeaderboard();
+  }, []);
+
   return (
     <div className="container mx-auto">
       <Card>
@@ -36,21 +56,36 @@ export default function LeaderboardPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {leaderboardData.map((entry) => (
-                <TableRow key={entry.rank} className={entry.name === 'You' ? 'bg-accent/50' : ''}>
-                  <TableCell className="font-medium">{entry.rank}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={entry.avatarUrl} alt={entry.name} />
-                        <AvatarFallback>{entry.name.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      <span>{entry.name}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right font-mono">{entry.score.toLocaleString()}</TableCell>
-                </TableRow>
-              ))}
+              {loading ? (
+                Array.from({ length: 7 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="h-5 w-5 rounded-full" /></TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Skeleton className="h-8 w-8 rounded-full" />
+                        <Skeleton className="h-4 w-24" />
+                      </div>
+                    </TableCell>
+                    <TableCell><Skeleton className="h-4 w-12 ml-auto" /></TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                leaderboardData.map((user, index) => (
+                  <TableRow key={user.id} className={user.id === currentUser?.id ? 'bg-accent/50' : ''}>
+                    <TableCell className="font-medium">{index + 1}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={user.avatarUrl} alt={user.name} />
+                          <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <span>{user.name} {user.id === currentUser?.id ? '(You)' : ''}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right font-mono">{user.ktc.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </CardContent>
