@@ -1,6 +1,8 @@
 
 import type { Boost } from './types';
 
+// This file is now only used for the initial seeding of the database.
+// The primary source of truth for store items is the 'boosts' collection in Firestore.
 export const storeItems: Boost[] = [
   {
     id: 'bot-1',
@@ -54,6 +56,6 @@ export const storeItems: Boost[] = [
     cost: 380,
     type: 'extra_time',
     value: 20,
-    status: 'sold',
+    status: 'available',
   },
 ];

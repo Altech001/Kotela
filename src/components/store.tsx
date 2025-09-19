@@ -23,13 +23,12 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useGame } from '@/hooks/use-game';
-import { Bot, Clock, Zap } from 'lucide-react';
+import { Bot, Clock, Zap, Snowflake } from 'lucide-react';
 import type { Boost } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
 import { Badge } from '@/components/ui/badge';
 import { getBoosts } from '@/lib/actions';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Snowflake } from 'lucide-react';
 
 const iconMap: { [key: string]: React.ElementType } = {
   mining_bot: Bot,
@@ -116,7 +115,7 @@ export function Store() {
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {storeItems.map((item) => {
             const Icon = iconMap[item.type];
             const isSoldOut = item.status === 'sold';

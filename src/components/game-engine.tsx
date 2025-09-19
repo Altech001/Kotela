@@ -2,7 +2,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { Pickaxe, Repeat, AlertTriangle, TimerIcon, Rocket, Snowflake, Zap } from "lucide-react";
+import { Pickaxe, Repeat, AlertTriangle, TimerIcon, Rocket, Snowflake, Zap, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useGame } from '@/hooks/use-game';
 import { useAuth } from '@/hooks/use-auth';
@@ -16,7 +16,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
-import { getBoost } from "@/lib/actions";
 import { storeItems } from "@/lib/data";
 
 export function GameEngine() {
@@ -30,6 +29,7 @@ export function GameEngine() {
     handleTap,
     resetGame,
     activateBoost,
+    activateExtraTime,
   } = useGame();
 
   const CIRCLE_RADIUS = 100;
@@ -39,8 +39,8 @@ export function GameEngine() {
     if (!session || gameStatus !== 'playing') {
       return CIRCLE_CIRCUMFERENCE;
     }
-    const totalDuration = (session.expectedEndTime - session.startTime) / 1000;
-    const timeLeft = (session.expectedEndTime - Date.now()) / 1000;
+    const totalDuration = (session.duration) * 1000;
+    const timeLeft = (session.expectedEndTime - Date.now());
     const progress = Math.max(0, timeLeft / totalDuration);
     return CIRCLE_CIRCUMFERENCE - progress * CIRCLE_CIRCUMFERENCE;
   }, [session, gameStatus, CIRCLE_CIRCUMFERENCE]);
@@ -49,10 +49,7 @@ export function GameEngine() {
     if (!session || gameStatus !== 'playing') {
       return (session?.duration || 30);
     }
-    const isFrozen = session.activeBoost?.type === 'time_freeze' && Date.now() < session.activeBoost.endTime;
-    const endTime = isFrozen ? session.activeBoost.endTime : session.expectedEndTime;
-
-    return Math.max(0, Math.round((endTime - Date.now()) / 1000));
+    return Math.max(0, Math.round((session.expectedEndTime - Date.now()) / 1000));
   }, [session, gameStatus]);
 
 
@@ -95,7 +92,7 @@ export function GameEngine() {
     );
   };
   
-  const hasBoost = (boostType: string) => {
+  const getBoostMeta = (boostType: string) => {
     const boostMeta = storeItems.find(i => i.type === boostType);
     if (!boostMeta) return { has: false, quantity: 0, id: '' };
     const userBoost = user?.boosts.find(b => b.boostId === boostMeta.id);
@@ -106,8 +103,11 @@ export function GameEngine() {
     };
   };
 
-  const multiplierBoost = hasBoost('score_multiplier');
-  const freezeBoost = hasBoost('time_freeze');
+  const multiplierBoost = getBoostMeta('score_multiplier');
+  const freezeBoost = getBoostMeta('time_freeze');
+  const extraTime10Boost = user?.boosts.find(b => b.boostId === 'extra-time-10');
+  const extraTime20Boost = user?.boosts.find(b => b.boostId === 'extra-time-20');
+
 
   return (
     <div className="w-full max-w-md flex flex-col items-center gap-6">
@@ -168,6 +168,20 @@ export function GameEngine() {
       </div>
 
       <div className="flex flex-wrap items-center justify-center gap-2">
+        {gameStatus === 'idle' && (
+          <>
+            {extraTime10Boost && extraTime10Boost.quantity > 0 && (
+              <Button onClick={() => activateExtraTime(extraTime10Boost.boostId)} variant="outline" size="sm">
+                <Clock /> +10s ({extraTime10Boost.quantity})
+              </Button>
+            )}
+            {extraTime20Boost && extraTime20Boost.quantity > 0 && (
+              <Button onClick={() => activateExtraTime(extraTime20Boost.boostId)} variant="outline" size="sm">
+                <Clock /> +20s ({extraTime20Boost.quantity})
+              </Button>
+            )}
+          </>
+        )}
         {gameStatus === 'playing' && (
           <>
             <Button onClick={() => activateBoost(multiplierBoost.id)} disabled={!multiplierBoost.has || !!activeBoostInfo} variant="outline" size="sm"><Zap />({multiplierBoost.quantity})</Button>
