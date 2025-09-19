@@ -87,8 +87,11 @@ export default function ProfilePage() {
         toast({ title: 'Error', description: error.message, variant: 'destructive' });
     }
   }
+  
+  const walletAddresses = user.walletAddresses || [];
+  const transactions = user.transactions || [];
 
-  const sortedTransactions = user.transactions ? [...user.transactions].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()) : [];
+  const sortedTransactions = [...transactions].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
   const getTransactionIcon = (transaction: Transaction) => {
     if (transaction.description.toLowerCase().includes('bot')) {
@@ -148,7 +151,7 @@ export default function ProfilePage() {
               <span className="text-2xl text-muted-foreground">KTC</span>
             </p>
             <div className="space-y-2 mt-4">
-                {user.walletAddresses.map((address) => (
+                {walletAddresses.map((address) => (
                      <div key={address} className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Wallet className="w-4 h-4" />
                         <span className="font-mono flex-1 truncate">{address}</span>
@@ -163,12 +166,12 @@ export default function ProfilePage() {
                 size="sm" 
                 className="mt-4 w-full" 
                 onClick={handleAddWallet}
-                disabled={user.walletAddresses.length >= 5}
+                disabled={walletAddresses.length >= 5}
             >
                 <PlusCircle className="mr-2" />
                 Add New Address
             </Button>
-             {user.walletAddresses.length >= 5 && <p className='text-xs text-muted-foreground text-center mt-2'>You have reached the maximum number of wallet addresses.</p>}
+             {walletAddresses.length >= 5 && <p className='text-xs text-muted-foreground text-center mt-2'>You have reached the maximum number of wallet addresses.</p>}
           </CardContent>
         </Card>
         <Card>
