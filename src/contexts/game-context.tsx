@@ -1,7 +1,6 @@
-
 "use client";
 
-import { createContext, useState, useEffect, useCallback, ReactNode, useMemo } from 'react';
+import { createContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { storeItems } from '@/lib/data';
 import type { Boost as BoostType } from '@/lib/types';
