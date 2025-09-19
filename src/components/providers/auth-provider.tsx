@@ -253,10 +253,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [user]);
 
   const addWalletAddress = useCallback(async () => {
-    if (user && user.walletAddresses.length < 5) {
-      const newAddress = createWalletAddress(user.id);
-      const newAddresses = [...user.walletAddresses, newAddress];
-      await updateUser({ walletAddresses: newAddresses });
+    if (user) {
+      const currentAddresses = user.walletAddresses || [];
+      if (currentAddresses.length < 5) {
+        const newAddress = createWalletAddress(user.id);
+        const newAddresses = [...currentAddresses, newAddress];
+        await updateUser({ walletAddresses: newAddresses });
+      }
     }
   }, [user, updateUser]);
 
