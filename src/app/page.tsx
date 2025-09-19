@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
 import { useEffect, useState } from 'react';
 import { GameEngine } from '@/components/game-engine';
 import { Leaderboard } from '@/components/leaderboard';
 import { Store } from '@/components/store';
 import { Separator } from '@/components/ui/separator';
-import { Bot, Github, ShoppingCart, Rocket, Bomb, Clock, Zap, Gift, Snowflake, Coins, MapPin, TrendingUp, BarChart, ArrowDownUp, Repeat, ShieldCheck } from 'lucide-react';
+import { Bot, ShoppingCart, Rocket, Clock, Zap, Snowflake, Coins, MapPin, TrendingUp, BarChart, ArrowDownUp, Repeat, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
