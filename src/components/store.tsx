@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -22,12 +22,13 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { storeItems } from '@/lib/data';
 import { useGame } from '@/hooks/use-game';
 import { Bot, Clock, ShieldPlus, Zap } from 'lucide-react';
 import type { Boost } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
 import { Badge } from '@/components/ui/badge';
+import { getBoosts } from '@/lib/actions';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const iconMap = {
   mining_bot: Bot,
@@ -40,8 +41,20 @@ export function Store() {
   const { buyBoost } = useGame();
   const { user } = useAuth();
   const { toast } = useToast();
+  const [storeItems, setStoreItems] = useState<Boost[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Boost | null>(null);
+
+  useEffect(() => {
+    const fetchBoosts = async () => {
+      setLoading(true);
+      const items = await getBoosts();
+      setStoreItems(items);
+      setLoading(false);
+    };
+    fetchBoosts();
+  }, []);
 
   const handleBuyClick = (item: Boost) => {
     if (item.status === 'sold') {
@@ -56,10 +69,10 @@ export function Store() {
     setShowConfirmDialog(true);
   };
 
-  const confirmPurchase = () => {
+  const confirmPurchase = async () => {
     if (!selectedItem) return;
 
-    const success = buyBoost(selectedItem);
+    const success = await buyBoost(selectedItem);
     if (success) {
       toast({
         title: 'Purchase Successful!',
@@ -91,30 +104,42 @@ export function Store() {
             <p className="font-bold text-xl">{user?.ktc.toFixed(2)} KTC</p>
         </div>
       </div>
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {storeItems.map((item) => {
-          const Icon = iconMap[item.type];
-          const isSoldOut = item.status === 'sold';
-          return (
-            <Card key={item.id} className="flex flex-col relative overflow-hidden">
-              {isSoldOut && <Badge variant="destructive" className="absolute top-2 right-2">Sold Out</Badge>}
-              <CardHeader className="flex-row items-start gap-4 space-y-0">
-                <div className="flex-1">
-                  <CardTitle>{item.name}</CardTitle>
-                  <CardDescription>{item.description}</CardDescription>
-                </div>
-                <Icon className="h-8 w-8 text-muted-foreground" />
-              </CardHeader>
-              <CardContent className="flex-1"></CardContent>
-              <CardFooter>
-                <Button className="w-full" onClick={() => handleBuyClick(item)} disabled={isSoldOut}>
-                  Buy for {item.cost} KTC
-                </Button>
-              </CardFooter>
+      {loading ? (
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i}>
+              <CardHeader><Skeleton className="h-6 w-3/4" /></CardHeader>
+              <CardContent><Skeleton className="h-4 w-full" /></CardContent>
+              <CardFooter><Skeleton className="h-10 w-full" /></CardFooter>
             </Card>
-          );
-        })}
-      </div>
+          ))}
+        </div>
+      ) : (
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {storeItems.map((item) => {
+            const Icon = iconMap[item.type];
+            const isSoldOut = item.status === 'sold';
+            return (
+              <Card key={item.id} className="flex flex-col relative overflow-hidden">
+                {isSoldOut && <Badge variant="destructive" className="absolute top-2 right-2">Sold Out</Badge>}
+                <CardHeader className="flex-row items-start gap-4 space-y-0">
+                  <div className="flex-1">
+                    <CardTitle>{item.name}</CardTitle>
+                    <CardDescription>{item.description}</CardDescription>
+                  </div>
+                  {Icon && <Icon className="h-8 w-8 text-muted-foreground" />}
+                </CardHeader>
+                <CardContent className="flex-1"></CardContent>
+                <CardFooter>
+                  <Button className="w-full" onClick={() => handleBuyClick(item)} disabled={isSoldOut}>
+                    Buy for {item.cost} KTC
+                  </Button>
+                </CardFooter>
+              </Card>
+            );
+          })}
+        </div>
+      )}
       
       <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
         <AlertDialogContent>

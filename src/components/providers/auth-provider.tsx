@@ -1,8 +1,9 @@
+
 'use client';
 
 import { useState, useCallback, ReactNode, useEffect } from 'react';
 import { AuthContext } from '@/contexts/auth-context';
-import type { User, Transaction } from '@/lib/types';
+import type { User, Transaction, Boost } from '@/lib/types';
 import { auth, db } from '@/lib/firebase';
 import {
   onAuthStateChanged,
@@ -12,6 +13,7 @@ import {
   User as FirebaseUser,
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs, writeBatch, arrayUnion, runTransaction, or } from 'firebase/firestore';
+import { storeItems as localStoreItems } from '@/lib/data';
 
 
 const createWalletAddress = (uid: string) => `KTC_${uid.slice(0, 4)}${Date.now().toString(36).slice(-4)}${Math.random().toString(36).slice(2, 6)}`;
@@ -30,11 +32,26 @@ const createUserObject = (firebaseUser: FirebaseUser, extraData: Partial<User> =
   ...extraData,
 });
 
+async function initializeBoosts() {
+    const boostsRef = collection(db, 'boosts');
+    const snapshot = await getDocs(boostsRef);
+    if (snapshot.empty) {
+        const batch = writeBatch(db);
+        localStoreItems.forEach((item) => {
+            const docRef = doc(boostsRef, item.id);
+            batch.set(docRef, item);
+        });
+        await batch.commit();
+        console.log("Initialized 'boosts' collection from local data.");
+    }
+}
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    initializeBoosts();
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         const userDocRef = doc(db, 'users', firebaseUser.uid);
@@ -42,8 +59,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (userDoc.exists()) {
           setUser(userDoc.data() as User);
         } else {
-          // This case might happen if a user was created in auth but not in firestore
-          // Let's create it now.
            const newUser = createUserObject(firebaseUser);
            await setDoc(userDocRef, newUser);
            setUser(newUser);
@@ -61,7 +76,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      // onAuthStateChanged will handle setting the user state
     } finally {
       setLoading(false);
     }
@@ -78,7 +92,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const batch = writeBatch(db);
       const usersRef = collection(db, 'users');
 
-      // Handle referral bonus
       if (extraData.referralCode && extraData.referralCode.trim() !== '') {
         const q = query(usersRef, where('referralCode', '==', extraData.referralCode));
         const querySnapshot = await getDocs(q);
@@ -88,12 +101,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           const directReferrerData = directReferrerDoc.data() as User;
 
           const NEW_USER_BONUS = 100;
-          const TIER_1_BONUS = 250; // Direct referrer
-          const TIER_2_BONUS = 50; // Indirect referrer (grand-referrer)
+          const TIER_1_BONUS = 250;
+          const TIER_2_BONUS = 50;
 
-          // Award bonus to new user
           newUser.ktc += NEW_USER_BONUS;
-          newUser.referredBy = directReferrerDoc.id; // Track who referred this user
+          newUser.referredBy = directReferrerDoc.id;
           const newUserBonusTx: Transaction = {
             id: `tx-${Date.now()}-signup-bonus`,
             type: 'deposit',
@@ -103,7 +115,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           };
           newUser.transactions.push(newUserBonusTx);
 
-          // Award bonus to direct referrer (Tier 1)
           const directReferrerRef = doc(db, 'users', directReferrerDoc.id);
           const directReferrerBonusTx: Transaction = {
             id: `tx-${Date.now()}-referral-t1`,
@@ -117,7 +128,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             transactions: arrayUnion(directReferrerBonusTx) 
           });
 
-          // Award bonus to indirect referrer (Tier 2), if they exist
           if (directReferrerData.referredBy) {
             const indirectReferrerRef = doc(db, 'users', directReferrerData.referredBy);
             const indirectReferrerDoc = await getDoc(indirectReferrerRef);
@@ -144,7 +154,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       await batch.commit();
       
-      // onAuthStateChanged will handle setting user state, but we can set it here for faster UI update
       setUser(newUser);
 
     } finally {
@@ -203,7 +212,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         await runTransaction(db, async (transaction) => {
             const usersRef = collection(db, 'users');
             
-            // Get recipient by either referral code or wallet address
             const recipientQuery = query(usersRef, or(
                 where('referralCode', '==', recipientIdentifier),
                 where('walletAddresses', 'array-contains', recipientIdentifier)
@@ -217,7 +225,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             const recipientData = recipientDoc.data() as User;
             const recipientRef = doc(db, 'users', recipientDoc.id);
 
-            // Get sender
             const senderRef = doc(db, 'users', user.id);
             const senderDoc = await transaction.get(senderRef);
             if (!senderDoc.exists()) {
@@ -228,14 +235,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 throw new Error("Insufficient funds.");
             }
 
-            // Update balances
             const newSenderKtc = senderData.ktc - amount;
             const newRecipientKtc = recipientData.ktc + amount;
 
             const now = new Date().toISOString();
             const txId = `tx-${Date.now()}`;
 
-            // Create transactions
             const senderTx: Transaction = {
                 id: `${txId}-send`,
                 type: 'transfer',
@@ -256,12 +261,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 description: `Received from ${senderData.name}`,
             };
             
-            // Perform updates
             transaction.update(senderRef, { ktc: newSenderKtc, transactions: arrayUnion(senderTx) });
             transaction.update(recipientRef, { ktc: newRecipientKtc, transactions: arrayUnion(recipientTx) });
 
-             // Update local state optimistically
-            setUser((prev) => {
+             setUser((prev) => {
                 if (!prev) return null;
                 return {
                 ...prev,

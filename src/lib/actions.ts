@@ -4,8 +4,8 @@
 import { analyzePrivacyRisks } from '@/ai/flows/privacy-risk-analysis';
 import { backgroundMiningSummary } from '@/ai/flows/background-mining-summary';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, orderBy, query, addDoc, serverTimestamp, where } from 'firebase/firestore';
-import type { User, Comment } from '@/lib/types';
+import { collection, getDocs, orderBy, query, addDoc, serverTimestamp, where, doc, getDoc } from 'firebase/firestore';
+import type { User, Comment, Boost } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 
 export async function runPrivacyAnalysis(gameplayData: string) {
@@ -66,13 +66,15 @@ export async function getComments(postId: string): Promise<Comment[]> {
     const comments: Comment[] = [];
     querySnapshot.forEach((doc) => {
       const data = doc.data();
+      // Firestore timestamps need to be converted
+      const date = data.date?.toDate ? data.date.toDate().toISOString() : new Date().toISOString();
       comments.push({
         id: doc.id,
         postId: data.postId,
         userId: data.userId,
         author: data.author,
         authorImage: data.authorImage,
-        date: data.date.toDate().toISOString(),
+        date: date,
         content: data.content,
       });
     });
@@ -95,6 +97,37 @@ export async function addComment(comment: Omit<Comment, 'id' | 'date'>): Promise
     return {
         ...comment,
         id: docRef.id,
-        date: new Date().toISOString()
+        date: new Date().toISOString() // return an estimated timestamp
     };
+}
+
+
+export async function getBoosts(): Promise<Boost[]> {
+  try {
+    const boostsRef = collection(db, 'boosts');
+    const q = query(boostsRef, orderBy('cost', 'asc'));
+    const querySnapshot = await getDocs(q);
+    const boosts: Boost[] = [];
+    querySnapshot.forEach((doc) => {
+      boosts.push(doc.data() as Boost);
+    });
+    return boosts;
+  } catch (error) {
+    console.error('Error fetching boosts:', error);
+    return [];
+  }
+}
+
+export async function getBoost(boostId: string): Promise<Boost | null> {
+  try {
+    const boostRef = doc(db, 'boosts', boostId);
+    const docSnap = await getDoc(boostRef);
+    if (docSnap.exists()) {
+      return docSnap.data() as Boost;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error fetching boost:', error);
+    return null;
+  }
 }

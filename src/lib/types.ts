@@ -26,7 +26,6 @@ export type Boost = {
 export type UserBoost = {
   boostId: string;
   quantity: number;
-  activated?: boolean;
 };
 
 export type Transaction = {
@@ -64,4 +63,19 @@ export type Comment = {
   authorImage: string;
   date: string; // ISO String
   content: string;
+}
+
+export interface GameSession {
+  userId: string;
+  score: number;
+  startTime: number; // timestamp
+  expectedEndTime: number; // timestamp
+  duration: number; // in seconds
+  status: 'playing' | 'ended';
+  activeBoost: {
+    id: string;
+    type: Boost['type'];
+    value: number;
+    endTime: number; // timestamp
+  } | null;
 }

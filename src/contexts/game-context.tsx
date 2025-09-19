@@ -1,56 +1,33 @@
+
 "use client";
 
 import { createContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import { storeItems } from '@/lib/data';
-import type { Boost as BoostType } from '@/lib/types';
-import { runPrivacyAnalysis } from '@/lib/actions';
+import type { Boost as BoostType, UserBoost, GameSession } from '@/lib/types';
+import { runPrivacyAnalysis, getBoosts, getBoost } from '@/lib/actions';
+import { db } from '@/lib/firebase';
+import { doc, setDoc, getDoc, updateDoc, deleteDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
+
 
 export type GameStatus = "idle" | "playing" | "ended";
-export type ActiveBoostEffect = 'scoreMultiplier' | 'timeFreeze' | 'frenzy' | null;
 
-
-const BASE_GAME_DURATION = 30;
-
-interface ActiveBoost {
-  id: string;
-  type: BoostType['type'];
-  value: number;
-  timeLeft: number;
-}
+const BASE_GAME_DURATION = 30 * 1000; // 30 seconds in ms
 
 export interface GameContextType {
-  score: number;
-  timer: number;
+  session: GameSession | null;
   gameStatus: GameStatus;
   isStoreOpen: boolean;
   isModalOpen: boolean;
   privacyWarning: string | null;
-  activeBoosts: Record<string, ActiveBoost>;
   inventory: Record<string, number>;
-  gameDuration: number;
-  timeBoostUsed: boolean;
   
   handleTap: () => void;
-  resetGame: () => void;
-  buyBoost: (boost: BoostType) => boolean;
-  activateBoost: (boostId: string) => void;
-  activateTimeBoost: (boostId: string) => void;
-  activateTimeFreeze: (boostId: string) => void;
-  activateFrenzy: (boostId: string) => void;
+  resetGame: () => Promise<void>;
+  buyBoost: (boost: BoostType) => Promise<boolean>;
+  activateBoost: (boostId: string) => Promise<void>;
 
   setIsStoreOpen: (isOpen: boolean) => void;
   setIsModalOpen: (isOpen: boolean) => void;
-  
-  // New properties for the modern game engine
-  timeLeft: number;
-  gameState: GameStatus;
-  activeBoost: 'rocket' | 'missile' | null;
-  activeEffect: ActiveBoostEffect;
-  boostTimeLeft: number;
-  scoreIncrement: number;
-  activateEffectBoost: (boostType: 'freezeTime' | 'frenzy') => void;
-  activateInstantBoost: (boostType: 'scoreBomb') => void;
 }
 
 export const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -58,80 +35,126 @@ export const GameContext = createContext<GameContextType | undefined>(undefined)
 export function GameProvider({ children }: { children: ReactNode }) {
   const { user, updateUser, addTransaction } = useAuth();
   
-  const [score, setScore] = useState(0);
-  const [gameDuration, setGameDuration] = useState(BASE_GAME_DURATION);
-  const [timer, setTimer] = useState(gameDuration);
-  const [gameState, setGameState] = useState<GameStatus>('idle');
-  
+  const [session, setSession] = useState<GameSession | null>(null);
+  const [gameStatus, setGameStatus] = useState<GameStatus>('idle');
   const [isStoreOpen, setIsStoreOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [privacyWarning, setPrivacyWarning] = useState<string | null>(null);
-
-  const [activeBoosts, setActiveBoosts] = useState<Record<string, ActiveBoost>>({});
-  const [timeBoostUsed, setTimeBoostUsed] = useState(false);
+  const [localInventory, setLocalInventory] = useState<Record<string, number>>({});
   
-  const [activeBoost, setActiveBoost] = useState<'rocket' | 'missile' | null>(null);
-  const [activeEffect, setActiveEffect] = useState<ActiveBoostEffect>(null);
-  const [boostTimeLeft, setBoostTimeLeft] = useState(0);
-
-
-  const hasMiningBot = user?.boosts.some((b) => b.boostId === 'bot-1' && b.quantity > 0);
-
-  const inventory = useMemo(() => {
-    return user?.boosts.reduce((acc, boost) => {
-      const item = storeItems.find(item => item.id === boost.boostId);
-      if(item) {
-          acc[item.type] = (acc[item.type] || 0) + boost.quantity;
-      }
-      return acc;
-    }, {} as Record<string, number>) || {};
+  // Sync local inventory with user boosts
+  useEffect(() => {
+    if (user?.boosts) {
+      const fetchBoostsDetails = async () => {
+        const boosts = await getBoosts();
+        const inv: Record<string, number> = {};
+        user.boosts.forEach(userBoost => {
+          const boostDetail = boosts.find(b => b.id === userBoost.boostId);
+          if (boostDetail) {
+            inv[boostDetail.type] = (inv[boostDetail.type] || 0) + userBoost.quantity;
+          }
+        });
+        setLocalInventory(inv);
+      };
+      fetchBoostsDetails();
+    }
   }, [user?.boosts]);
   
-  const scoreIncrement = useMemo(() => {
-    let increment = 1;
-    if (activeBoost === 'rocket') increment = 2;
-    if (activeBoost === 'missile') increment = 3;
-    if (activeEffect === 'frenzy') increment *= 10;
-    return increment;
-  }, [activeBoost, activeEffect]);
-
-  const handleTap = useCallback(() => {
-    if (gameState === "idle") {
-      setGameState("playing");
+  // Game session listener
+  useEffect(() => {
+    if (!user) {
+      setSession(null);
+      setGameStatus('idle');
+      return;
     }
-     if (gameState !== 'playing') return;
-    const multiplier = activeBoosts['score_multiplier']?.value || 1;
-    setScore((prev) => prev + 1 * multiplier);
-  }, [gameState, activeBoosts]);
 
-  const resetGame = useCallback(() => {
-    setScore(0);
-    setGameDuration(BASE_GAME_DURATION);
-    setTimer(BASE_GAME_DURATION);
-    setGameState("idle");
-    setPrivacyWarning(null);
-    setActiveBoosts({});
-    setActiveBoost(null);
-    setActiveEffect(null);
-    setBoostTimeLeft(0);
-    setTimeBoostUsed(false);
-  }, []);
+    const sessionRef = doc(db, 'gameSessions', user.id);
+    const unsubscribe = onSnapshot(sessionRef, (doc) => {
+      if (doc.exists()) {
+        const sessionData = doc.data() as GameSession;
+        if (sessionData.status === 'playing' && Date.now() > sessionData.expectedEndTime) {
+          // If session is stale, end it.
+          endGame(sessionData);
+        } else {
+          setSession(sessionData);
+          setGameStatus(sessionData.status);
+        }
+      } else {
+        setSession(null);
+        setGameStatus('idle');
+      }
+    });
 
-  const endGame = useCallback(async () => {
-    if (gameState !== 'playing') return;
-    setGameState("ended");
-    
-    if (user && score > 0) {
-      const newKtc = user.ktc + score;
-      updateUser({ ktc: newKtc });
-      addTransaction({
+    return () => unsubscribe();
+  }, [user]);
+
+  // Game timer effect
+  useEffect(() => {
+    let interval: NodeJS.Timeout | undefined;
+    if (gameStatus === 'playing' && session) {
+      const tick = () => {
+        const now = Date.now();
+        let expectedEndTime = session.expectedEndTime;
+
+        // Adjust for active time freeze boost
+        if (session.activeBoost && session.activeBoost.type === 'time_freeze' && now < session.activeBoost.endTime) {
+           // We don't need to do anything, the main loop will handle the freeze.
+        }
+        
+        if (now >= expectedEndTime) {
+          endGame(session);
+        } else {
+          // Force a re-render to update timers
+           setSession(s => s ? {...s} : null);
+        }
+      };
+      interval = setInterval(tick, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [gameStatus, session]);
+
+
+  const startGame = async () => {
+    if (!user || gameStatus !== 'idle') return;
+
+    const startTime = Date.now();
+    const newSession: GameSession = {
+      userId: user.id,
+      score: 0,
+      startTime: startTime,
+      expectedEndTime: startTime + BASE_GAME_DURATION,
+      duration: BASE_GAME_DURATION / 1000,
+      status: 'playing',
+      activeBoost: null,
+    };
+
+    const sessionRef = doc(db, 'gameSessions', user.id);
+    await setDoc(sessionRef, newSession);
+  };
+
+  const endGame = useCallback(async (finalSession: GameSession) => {
+    if (!user || finalSession.status !== 'playing') return;
+
+    const finalScore = finalSession.score;
+    // Mark as ended locally to stop timers
+    setGameStatus('ended');
+    setSession(s => s ? {...s, status: 'ended'} : null);
+
+    // Delete the session from Firestore
+    const sessionRef = doc(db, 'gameSessions', user.id);
+    await deleteDoc(sessionRef);
+
+    if (finalScore > 0) {
+      const newKtc = user.ktc + finalScore;
+      await updateUser({ ktc: newKtc });
+      await addTransaction({
         type: 'deposit',
-        amount: score,
+        amount: finalScore,
         description: 'Gameplay earnings',
       });
     }
 
-    const gameData = JSON.stringify({ finalScore: score, endTime: new Date().toISOString() });
+    const gameData = JSON.stringify({ finalScore: finalScore, endTime: new Date().toISOString() });
     try {
       const result = await runPrivacyAnalysis(gameData);
       if (result.analysisResult.includes("risk")) {
@@ -141,188 +164,165 @@ export function GameProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error("Privacy analysis failed:", error);
     }
-  }, [gameState, score, user, updateUser, addTransaction]);
+  }, [user, updateUser, addTransaction]);
 
-  // Main game timer
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (gameState === 'playing' && timer > 0) {
-       const isFrozen = activeEffect === 'timeFreeze';
-       if (!isFrozen) {
-           interval = setInterval(() => {
-                setTimer((prev) => Math.max(0, prev - 1));
-            }, 1000);
-       }
-    } else if (gameState === 'playing' && timer === 0) {
-      endGame();
-    }
-    return () => clearInterval(interval);
-  }, [timer, gameState, endGame, activeEffect]);
 
-  // Boosts timer
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (gameState === 'playing' && activeEffect && boostTimeLeft > 0) {
-        interval = setInterval(() => {
-            setBoostTimeLeft(prev => prev - 1);
-        }, 1000);
-    } else if (activeEffect && boostTimeLeft <= 0) {
-      setActiveBoost(null);
-      setActiveEffect(null);
+  const handleTap = useCallback(async () => {
+    if (gameStatus === 'idle') {
+      await startGame();
+      return;
     }
-    return () => clearInterval(interval);
-  }, [gameState, activeEffect, boostTimeLeft]);
-  
-  // Auto-tapping for mining bot & frenzy
-  useEffect(() => {
-    let autoTapInterval: NodeJS.Timeout;
-     const isFrenzy = activeEffect === 'frenzy';
 
-    if (gameState === 'playing' && (hasMiningBot || isFrenzy)) {
-      autoTapInterval = setInterval(() => {
-        handleTap();
-      }, isFrenzy ? 100 : 1000); 
-    }
-    return () => clearInterval(autoTapInterval);
-  }, [gameState, hasMiningBot, activeEffect, handleTap]);
+    if (gameStatus !== 'playing' || !user || !session) return;
+    
+    const sessionRef = doc(db, 'gameSessions', user.id);
 
-  const useBoost = (boostId: string): boolean => {
-    if (!user) return false;
-    const boostIndex = user.boosts.findIndex(b => b.boostId === boostId && b.quantity > 0);
-    if (boostIndex > -1) {
-      const newBoosts = [...user.boosts];
-      newBoosts[boostIndex].quantity -= 1;
-      if (newBoosts[boostIndex].quantity === 0) {
-          newBoosts.splice(boostIndex, 1);
-      }
-      updateUser({ boosts: newBoosts });
-      return true;
-    }
-    return false;
-  };
-  
-  const activateBoostModern = (boostType: 'rocket' | 'missile') => {
-    const boostId = storeItems.find(i => i.type === 'score_multiplier' && (i.name.toLowerCase().includes(boostType)))?.id
-    if (gameState === 'playing' && !activeEffect && boostId && useBoost(boostId)) {
-      setActiveBoost(boostType);
-      setActiveEffect('scoreMultiplier');
-      setBoostTimeLeft(boostType === 'rocket' ? 5 : 3);
-    }
-  }
+    const now = Date.now();
+    const activeBoost = session.activeBoost;
+    let multiplier = 1;
 
-  const activateEffectBoost = (boostType: 'freezeTime' | 'frenzy') => {
-    const boostId = storeItems.find(i => i.type === (boostType === 'freezeTime' ? 'time_freeze' : 'score_multiplier'))?.id
-     if (gameState === 'playing' && !activeEffect && boostId && useBoost(boostId)) {
-      setActiveEffect(boostType);
-      setBoostTimeLeft(boostType === 'freezeTime' ? 5 : 3);
+    if (activeBoost && activeBoost.type === 'score_multiplier' && now < activeBoost.endTime) {
+        multiplier = activeBoost.value;
     }
-  };
-  
-  const activateInstantBoost = (boostType: 'scoreBomb') => {
-     const boostId = storeItems.find(i => i.name.toLowerCase().includes('bomb'))?.id
-     if (gameState === 'playing' && boostId && useBoost(boostId)) {
-      if (boostType === 'scoreBomb') {
-        setScore(s => s + 10);
-      }
-    }
+
+    const newScore = session.score + (1 * multiplier);
+
+    // This is a simplified update. For high-frequency updates, Cloud Functions would be better.
+    await updateDoc(sessionRef, { score: newScore });
+
+  }, [gameStatus, user, session]);
+
+  const resetGame = async () => {
+    if(!user) return;
+    const sessionRef = doc(db, 'gameSessions', user.id);
+    await deleteDoc(sessionRef).catch(() => {});
+    setSession(null);
+    setGameStatus("idle");
+    setPrivacyWarning(null);
+    setIsModalOpen(false);
   };
 
-  const activateTimeBoost = (boostId: string) => {
-    if (gameState === 'idle' && !timeBoostUsed && useBoost(boostId)) {
-      const boostInfo = storeItems.find(b => b.id === boostId);
-       if (boostInfo) {
-          const newDuration = BASE_GAME_DURATION + boostInfo.value;
-          setGameDuration(newDuration);
-          setTimer(newDuration);
-          setTimeBoostUsed(true);
-       }
-    }
-  };
-  
-  const activateTimeFreeze = (boostId: string) => {
-     activateBoost(boostId); // Uses the same logic
-  }
+  const buyBoost = useCallback(async (boost: BoostType): Promise<boolean> => {
+    if (!user || user.ktc < boost.cost) return false;
 
-  const activateFrenzy = (boostId: string) => {
-      activateBoost(boostId); // Uses the same logic
-  }
-
-  const buyBoost = useCallback((boost: BoostType): boolean => {
-    if (user && user.ktc >= boost.cost) {
-        const existingBoostIndex = user.boosts.findIndex(b => b.boostId === boost.id);
-        let newBoosts = [...(user.boosts || [])];
-
-        if (existingBoostIndex > -1) {
-            newBoosts[existingBoostIndex].quantity += 1;
-        } else {
-            newBoosts.push({ boostId: boost.id, quantity: 1 });
-        }
+    try {
+        const userRef = doc(db, 'users', user.id);
         
-        updateUser({
-            ktc: user.ktc - boost.cost,
-            boosts: newBoosts,
-        });
+        await runTransaction(db, async (transaction) => {
+            const userDoc = await transaction.get(userRef);
+            if (!userDoc.exists()) throw "User does not exist!";
+            
+            const currentUser = userDoc.data() as any;
+            if (currentUser.ktc < boost.cost) throw "Insufficient KTC.";
 
-        addTransaction({
+            const newBoosts = [...(currentUser.boosts || [])];
+            const existingBoostIndex = newBoosts.findIndex(b => b.boostId === boost.id);
+
+            if (existingBoostIndex > -1) {
+                newBoosts[existingBoostIndex].quantity += 1;
+            } else {
+                newBoosts.push({ boostId: boost.id, quantity: 1 });
+            }
+
+            transaction.update(userRef, {
+                ktc: currentUser.ktc - boost.cost,
+                boosts: newBoosts,
+            });
+        });
+        
+        await addTransaction({
             type: 'purchase',
             amount: boost.cost,
             description: `Purchased ${boost.name}`,
         });
 
-        return true;
-    }
-    return false;
-}, [user, updateUser, addTransaction]);
-
-// Legacy activateBoost, needs to be kept for old game engine logic if it's still used somewhere
- const activateBoost = (boostId: string) => {
-    if (gameState === 'playing' && useBoost(boostId)) {
-        const boostInfo = storeItems.find(b => b.id === boostId);
+        // Optimistically update local state
+        const newLocalInv = { ...localInventory };
+        const boostInfo = await getBoost(boost.id);
         if (boostInfo) {
-            setActiveBoosts(prev => ({
-                ...prev,
-                [boostInfo.type]: {
-                    id: boostInfo.id,
-                    type: boostInfo.type,
-                    value: boostInfo.value,
-                    timeLeft: 5, // All boosts last 5 seconds for now
-                }
-            }));
+          newLocalInv[boostInfo.type] = (newLocalInv[boostInfo.type] || 0) + 1;
+          setLocalInventory(newLocalInv);
         }
+
+        return true;
+    } catch (error) {
+        console.error("Purchase failed:", error);
+        return false;
     }
-  };
+  }, [user, localInventory, addTransaction]);
+
+ const useBoost = async (boostId: string) => {
+    if (!user) return false;
+    const userRef = doc(db, 'users', user.id);
+    try {
+        await runTransaction(db, async (transaction) => {
+            const userDoc = await transaction.get(userRef);
+            if (!userDoc.exists()) throw "User does not exist.";
+            const currentUser = userDoc.data() as any;
+            const newBoosts = [...currentUser.boosts];
+            const boostIndex = newBoosts.findIndex(b => b.boostId === boostId && b.quantity > 0);
+            if (boostIndex === -1) throw "Boost not available or out of stock.";
+            
+            newBoosts[boostIndex].quantity -= 1;
+            const finalBoosts = newBoosts.filter(b => b.quantity > 0);
+            transaction.update(userRef, { boosts: finalBoosts });
+        });
+        return true;
+    } catch (error) {
+        console.error("Failed to use boost:", error);
+        return false;
+    }
+ };
+
+ const activateBoost = async (boostId: string) => {
+    if (gameStatus !== 'playing' || !user || !session || session.activeBoost) return;
+
+    const boostInfo = await getBoost(boostId);
+    if (!boostInfo) return;
+
+    const hasBoost = await useBoost(boostId);
+    if (!hasBoost) return;
+    
+    const sessionRef = doc(db, 'gameSessions', user.id);
+    const now = Date.now();
+
+    if (boostInfo.type === 'score_multiplier') {
+        const activeBoostPayload = {
+            id: boostId,
+            type: boostInfo.type,
+            value: boostInfo.value,
+            endTime: now + 5000, // 5 seconds duration
+        };
+        await updateDoc(sessionRef, { activeBoost: activeBoostPayload });
+    } else if (boostInfo.type === 'time_freeze') {
+         const activeBoostPayload = {
+            id: boostId,
+            type: boostInfo.type,
+            value: boostInfo.value,
+            endTime: now + (boostInfo.value * 1000),
+        };
+        const newExpectedEndTime = session.expectedEndTime + (boostInfo.value * 1000);
+        await updateDoc(sessionRef, { 
+            activeBoost: activeBoostPayload,
+            expectedEndTime: newExpectedEndTime
+        });
+    }
+ };
 
 
   const value: GameContextType = {
-    score,
-    timer,
-    gameStatus: gameState,
+    session,
+    gameStatus,
     isStoreOpen,
     isModalOpen,
     privacyWarning,
-    activeBoosts,
-    inventory,
-    gameDuration,
-    timeBoostUsed,
+    inventory: localInventory,
     handleTap,
     resetGame,
     buyBoost,
     activateBoost,
-    activateTimeBoost,
-    activateTimeFreeze,
-    activateFrenzy,
     setIsStoreOpen,
     setIsModalOpen,
-    // new props
-    timeLeft: timer,
-    gameState,
-    activeBoost,
-    activeEffect,
-    boostTimeLeft,
-    scoreIncrement,
-    activateEffectBoost,
-    activateInstantBoost,
-    activateBoost: activateBoostModern,
   };
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
