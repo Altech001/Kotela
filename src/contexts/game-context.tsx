@@ -235,7 +235,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
                 if (existingPowerupIndex > -1) {
                     const existingPowerup = newPowerups[existingPowerupIndex];
-                    if ((existingPowerup.quantity || 0) >= powerupItem.maxQuantity) {
+                     if ((existingPowerup.quantity || 0) >= powerupItem.maxQuantity) {
                          throw `Max quantity of ${powerupItem.name} reached.`;
                     }
                     newPowerups[existingPowerupIndex].quantity = (existingPowerup.quantity || 0) + 1;
@@ -297,19 +297,17 @@ export function GameProvider({ children }: { children: ReactNode }) {
                 newBoosts[boostIndex].quantity -= 1;
                 const finalBoosts = newBoosts.filter(b => b.quantity > 0);
                 transaction.update(userRef, { boosts: finalBoosts });
-                return;
+            } else {
+                 const powerupIndex = currentUser.powerups.findIndex((p: UserPowerup) => p.powerupId === itemId && (p.quantity || 0) > 0);
+                if (powerupIndex > -1) {
+                    const newPowerups = [...currentUser.powerups];
+                    newPowerups[powerupIndex].quantity = (newPowerups[powerupIndex].quantity || 1) - 1;
+                    const finalPowerups = newPowerups.filter(p => p.quantity > 0);
+                    transaction.update(userRef, { powerups: finalPowerups });
+                } else {
+                    throw "Item not available or out of stock.";
+                }
             }
-
-            const powerupIndex = currentUser.powerups.findIndex((p: UserPowerup) => p.powerupId === itemId && (p.quantity || 0) > 0);
-            if (powerupIndex > -1) {
-                const newPowerups = [...currentUser.powerups];
-                newPowerups[powerupIndex].quantity = (newPowerups[powerupIndex].quantity || 1) - 1;
-                const finalPowerups = newPowerups.filter(p => p.quantity > 0);
-                transaction.update(userRef, { powerups: finalPowerups });
-                return;
-            }
-            
-            throw "Item not available or out of stock.";
         });
         return true;
     } catch (error) {
