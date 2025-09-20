@@ -33,6 +33,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { submitKyc, getKycSubmission } from '@/lib/actions';
 import type { KycSubmission } from '@/lib/types';
 import { Progress } from '@/components/ui/progress';
+import { useGame } from '@/hooks/use-game';
 
 const formSchema = z.object({
   country: z.string({ required_error: "Please select a country." }).min(2, "Please select a country."),
@@ -65,11 +66,10 @@ const documentIdLabels: { [key: string]: string } = {
     national_id: "National Identity Number (NIN)",
 };
 
-const KYC_MINING_REQUIREMENT_HOURS = 5;
-const KYC_MINING_REQUIREMENT_SECONDS = KYC_MINING_REQUIREMENT_HOURS * 3600;
 
 export default function VerifyPage() {
   const { user, updateUser } = useAuth();
+  const { kycMiningRequirementHours } = useGame();
   const { toast } = useToast();
   const [step, setStep] = useState(1);
   const [uploadMode, setUploadMode] = useState<'select' | 'upload' | 'camera'>('select');
@@ -276,12 +276,13 @@ export default function VerifyPage() {
       return <div>Loading...</div>;
   }
 
+  const kycMiningRequirementSeconds = kycMiningRequirementHours * 3600;
   const totalMiningTime = user?.totalMiningTime || 0;
-  const hasMetRequirement = totalMiningTime >= KYC_MINING_REQUIREMENT_SECONDS;
-  const timeRemaining = KYC_MINING_REQUIREMENT_SECONDS - totalMiningTime;
+  const hasMetRequirement = totalMiningTime >= kycMiningRequirementSeconds;
+  const timeRemaining = kycMiningRequirementSeconds - totalMiningTime;
   const timeRemainingHours = Math.floor(timeRemaining / 3600);
   const timeRemainingMinutes = Math.floor((timeRemaining % 3600) / 60);
-  const progressPercentage = Math.min(100, (totalMiningTime / KYC_MINING_REQUIREMENT_SECONDS) * 100);
+  const progressPercentage = Math.min(100, (totalMiningTime / kycMiningRequirementSeconds) * 100);
 
 
   return (
@@ -305,7 +306,7 @@ export default function VerifyPage() {
               <CardHeader className="items-center text-center">
                   <Hourglass className="w-12 h-12 text-primary" />
                   <CardTitle>Mining Time Required</CardTitle>
-                  <CardDescription>You must mine for a total of {KYC_MINING_REQUIREMENT_HOURS} hours to access KYC verification.</CardDescription>
+                  <CardDescription>You must mine for a total of {kycMiningRequirementHours} hours to access KYC verification.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                   <Progress value={progressPercentage} />

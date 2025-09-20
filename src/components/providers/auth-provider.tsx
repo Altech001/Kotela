@@ -68,7 +68,15 @@ async function initializeCollections() {
     // Initialize game config if it doesn't exist
     const configDoc = await getDoc(configRef);
     if (!configDoc.exists()) {
-      batch.set(configRef, { baseGameDuration: 30 });
+      batch.set(configRef, { 
+          baseGameDuration: 30,
+          kycMiningRequirementHours: 5,
+      });
+    } else {
+      const currentConfig = configDoc.data();
+      if (currentConfig.kycMiningRequirementHours === undefined) {
+        batch.update(configRef, { kycMiningRequirementHours: 5 });
+      }
     }
 
     // Initialize announcements if it doesn't exist

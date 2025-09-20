@@ -1,6 +1,7 @@
 
 
 
+
 'use client';
 
 import { createContext, useState, useEffect, useCallback, ReactNode, useMemo } from 'react';
@@ -26,6 +27,7 @@ export interface GameContextType {
   isModalOpen: boolean;
   privacyWarning: string | null;
   isBalanceVisible: boolean;
+  kycMiningRequirementHours: number;
   
   handleTap: () => void;
   resetGame: () => Promise<void>;
@@ -49,6 +51,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [privacyWarning, setPrivacyWarning] = useState<string | null>(null);
   const [baseGameDuration, setBaseGameDuration] = useState(DEFAULT_GAME_DURATION);
+  const [kycMiningRequirementHours, setKycMiningRequirementHours] = useState(5);
   const [isBalanceVisible, setIsBalanceVisible] = useState(false);
 
   const toggleBalanceVisibility = () => {
@@ -60,7 +63,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const configRef = doc(db, 'config', 'gameConfig');
     const unsubscribe = onSnapshot(configRef, (doc) => {
       if (doc.exists()) {
-        setBaseGameDuration(doc.data().baseGameDuration || DEFAULT_GAME_DURATION);
+        const configData = doc.data();
+        setBaseGameDuration(configData.baseGameDuration || DEFAULT_GAME_DURATION);
+        setKycMiningRequirementHours(configData.kycMiningRequirementHours || 5);
       }
     });
     return () => unsubscribe();
@@ -464,6 +469,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     isModalOpen,
     privacyWarning,
     isBalanceVisible,
+    kycMiningRequirementHours,
     handleTap,
     resetGame,
     buyItem,
