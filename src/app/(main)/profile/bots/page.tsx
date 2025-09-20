@@ -53,7 +53,8 @@ export default function MyBotsPage() {
     }, [user, allItems]);
 
     const botUpgrade = useMemo(() => {
-        return user?.powerups.find(p => p.powerupId === 'bot-upgrade-1');
+        if (!user || !user.powerups) return null;
+        return user.powerups.find(p => p.powerupId === 'bot-upgrade-1');
     }, [user]);
 
     const revenueRate = useMemo(() => {
