@@ -91,6 +91,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
         // Apply permanent multiplier from power-ups
         const permMultiplierPowerup = user?.powerups.find(p => p.powerupId === 'perm-multiplier-1.5x');
         if (permMultiplierPowerup) currentRate *= 1.5;
+        
+        // Apply bot upgrade multiplier
+        const botUpgradePowerup = user?.powerups.find(p => p.powerupId === 'bot-upgrade-1');
+        if (botUpgradePowerup) currentRate *= botUpgradePowerup.value;
+
 
         // Check for active boost/power-up and apply its effect
         if (currentSession.activeBoost && now < currentSession.activeBoost.endTime) {
@@ -212,7 +217,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   };
 
   const buyItem = useCallback(async (item: StoreItem): Promise<boolean> => {
-    if (!user || user.ktc < item.cost) return false;
+    if (!user) return false;
 
     const isPowerup = 'maxQuantity' in item;
 
@@ -251,6 +256,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
                 transaction.update(userRef, {
                     ktc: currentUser.ktc - item.cost,
                     powerups: newPowerups,
+                    transactions: arrayUnion({
+                      id: `tx-purchase-${item.id}-${Date.now()}`,
+                      type: 'purchase',
+                      amount: item.cost,
+                      timestamp: new Date().toISOString(),
+                      description: `Purchased ${item.name}`,
+                    })
                 });
 
             } else { // It's a boost
@@ -265,23 +277,24 @@ export function GameProvider({ children }: { children: ReactNode }) {
                 transaction.update(userRef, {
                     ktc: currentUser.ktc - item.cost,
                     boosts: newBoosts,
+                    transactions: arrayUnion({
+                      id: `tx-purchase-${item.id}-${Date.now()}`,
+                      type: 'purchase',
+                      amount: item.cost,
+                      timestamp: new Date().toISOString(),
+                      description: `Purchased ${item.name}`,
+                    })
                 });
             }
         });
         
-        await addTransaction({
-            type: 'purchase',
-            amount: item.cost,
-            description: `Purchased ${item.name}`,
-        });
-
         // AuthProvider's onSnapshot will handle the user state update, triggering re-renders
         return true;
     } catch (error) {
         console.error("Purchase failed:", error);
         return false;
     }
-  }, [user, addTransaction]);
+  }, [user]);
 
  const useItem = async (itemId: string): Promise<boolean> => {
     if (!user) return false;
@@ -296,7 +309,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
             if (boostIndex > -1) {
                 const newBoosts = [...currentUser.boosts];
                 newBoosts[boostIndex].quantity -= 1;
-                transaction.update(userRef, { boosts: newBoosts.filter(b => b.quantity > 0) });
+                transaction.update(userRef, { boosts: newBoosts });
                 return;
             }
 
@@ -304,7 +317,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
             if (powerupIndex > -1) {
                 const newPowerups = [...currentUser.powerups];
                 newPowerups[powerupIndex].quantity = (newPowerups[powerupIndex].quantity || 1) - 1;
-                transaction.update(userRef, { powerups: newPowerups.filter(p => p.quantity > 0) });
+                transaction.update(userRef, { powerups: newPowerups });
                 return;
             }
             
@@ -323,7 +336,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     let itemInfo: BoostType | PowerupType | null = await getPowerup(itemId);
     if (!itemInfo) itemInfo = await getBoost(itemId);
     
-    if (!itemInfo || itemInfo.type !== 'extra_time') return;
+    if (!itemInfo || (itemInfo.type !== 'extra_time' && itemInfo.id !== 'extraTime')) return;
     
     const consumed = await useItem(itemId);
     if(consumed) {
@@ -367,14 +380,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (itemInfo.id === 'missile') durationMs = 3000;
     else if (itemInfo.id === 'rocket') durationMs = 5000;
     else if (itemInfo.id === 'frenzy') durationMs = 3000;
-    else if (itemInfo.id === 'freezeTime') durationMs = itemInfo.value * 1000;
+    else if (itemInfo.id === 'time-freeze-5' || itemInfo.id === 'freezeTime') durationMs = itemInfo.value * 1000;
     else if (itemInfo.type === 'score_multiplier') durationMs = 5000; // Default for other multipliers
 
     if (durationMs > 0) {
         activeBoostPayload.endTime = now + durationMs;
     }
 
-    if (itemInfo.type === 'time_freeze') {
+    if (itemInfo.type === 'time_freeze' || itemInfo.id === 'freezeTime') {
         setSession(s => {
             if (!s) return null;
             const newExpectedEndTime = s.expectedEndTime + (itemInfo.value * 1000);
