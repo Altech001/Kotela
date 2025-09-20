@@ -288,7 +288,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
                     if (existingBoostIndex > -1) {
                         newBoosts[existingBoostIndex].quantity += 1;
                     } else {
-                        newBoosts.push({ boostId: item.id, quantity: 1, active: true });
+                        newBoosts.push({ boostId: item.id, quantity: 1, active: true, type: item.type });
                     }
                 }
                 
@@ -442,7 +442,3 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
 }
-
-    
-
-    
