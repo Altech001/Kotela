@@ -4,7 +4,7 @@
 
 import { db } from '@/lib/firebase';
 import { collection, getDocs, orderBy, query, addDoc, serverTimestamp, where, doc, getDoc, writeBatch, deleteDoc, setDoc, arrayUnion } from 'firebase/firestore';
-import type { User, Comment, Boost, Powerup, Notification, MobileMoneyAccount, Transaction, Announcement, BonusGame, Video, KycSubmission } from '@/lib/types';
+import type { User, Comment, Boost, Powerup, Notification, MobileMoneyAccount, Transaction, Announcement, BonusGame, Video, KycSubmission, AdvertiserProfile, P2PListing, P2PPaymentMethod, P2PRegion } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import { startOfDay, endOfDay } from 'date-fns';
 
@@ -401,4 +401,132 @@ export async function getKycSubmission(userId: string): Promise<KycSubmission | 
         ...data,
         submittedAt: data.submittedAt.toDate().toISOString(),
     } as KycSubmission;
+}
+
+// P2P Advertiser Actions
+
+async function seedP2PConfig() {
+    const batch = writeBatch(db);
+    const p2pConfigRef = collection(db, 'p2pConfig');
+
+    const paymentMethods: P2PPaymentMethod[] = [
+        { id: 'sepa', name: 'SEPA (EU) bank transfer', category: 'bank' },
+        { id: 'bank_transfer', name: 'Bank Transfer', category: 'bank' },
+        { id: 'zen', name: 'ZEN', category: 'e-wallet' },
+        { id: 'pesapal', name: 'Pesapal', category: 'mobile' },
+        { id: 'jpesa', name: 'Jpesa', category: 'mobile' },
+        { id: 'transid', name: 'TransID', category: 'mobile' },
+    ];
+
+    const regions: P2PRegion[] = [
+        { id: 'eu', name: 'Europe' },
+        { id: 'us', name: 'United States' },
+        { id: 'asia', name: 'Asia' },
+        { id: 'africa', name: 'Africa' },
+        { id: 'global', name: 'Global' },
+    ];
+    
+    paymentMethods.forEach(method => {
+        const docRef = doc(p2pConfigRef, `paymentMethods_${method.id}`);
+        batch.set(docRef, method);
+    });
+
+    regions.forEach(region => {
+        const docRef = doc(p2pConfigRef, `regions_${region.id}`);
+        batch.set(docRef, region);
+    });
+
+    await batch.commit();
+}
+
+
+export async function getP2PPaymentMethods(): Promise<P2PPaymentMethod[]> {
+    const ref = collection(db, 'p2pConfig');
+    const q = query(ref, where('category', 'in', ['bank', 'e-wallet', 'mobile']));
+    const snapshot = await getDocs(q);
+    if(snapshot.empty) {
+        await seedP2PConfig();
+        const newSnapshot = await getDocs(q);
+        return newSnapshot.docs.map(doc => doc.data() as P2PPaymentMethod);
+    }
+    return snapshot.docs.map(doc => doc.data() as P2PPaymentMethod);
+}
+
+export async function getP2PRegions(): Promise<P2PRegion[]> {
+    const ref = collection(db, 'p2pConfig');
+    const q = query(ref, where('name', '!=', '')); // Simple query to get all regions
+    const snapshot = await getDocs(q);
+     if(snapshot.empty) {
+        await seedP2PConfig();
+        const newSnapshot = await getDocs(query(ref, where('name', '!=', '')));
+        return newSnapshot.docs.map(doc => doc.data() as P2PRegion);
+    }
+    const regions = snapshot.docs.map(doc => doc.data())
+        .filter(data => data.category === undefined) as P2PRegion[];
+    return regions;
+}
+
+
+export async function createOrUpdateAdvertiser(profile: Omit<AdvertiserProfile, 'createdAt'>, initialListing: Omit<P2PListing, 'id' | 'advertiserId' | 'createdAt'>): Promise<void> {
+    const batch = writeBatch(db);
+    
+    const advertiserRef = doc(db, 'p2pAdvertisers', profile.userId);
+    const listingRef = doc(collection(db, 'p2pListings'));
+    const userRef = doc(db, 'users', profile.userId);
+
+    const newProfile = {
+        ...profile,
+        createdAt: serverTimestamp(),
+    };
+    
+    const newListing = {
+        ...initialListing,
+        advertiserId: profile.userId,
+        createdAt: serverTimestamp(),
+    };
+    
+    batch.set(advertiserRef, newProfile, { merge: true });
+    batch.set(listingRef, newListing);
+    batch.update(userRef, { isP2PAdvertiser: true });
+
+    await batch.commit();
+}
+
+
+export async function getAdvertiserProfile(userId: string): Promise<AdvertiserProfile | null> {
+    const docRef = doc(db, 'p2pAdvertisers', userId);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+        const data = docSnap.data();
+        return {
+            ...data,
+            createdAt: data.createdAt.toDate().toISOString(),
+        } as AdvertiserProfile;
+    }
+    return null;
+}
+
+export async function getAdvertiserListings(userId: string): Promise<P2PListing[]> {
+  const listingsRef = collection(db, 'p2pListings');
+  const q = query(listingsRef, where('advertiserId', '==', userId), orderBy('createdAt', 'desc'));
+  const snapshot = await getDocs(q);
+
+  return snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        createdAt: data.createdAt.toDate().toISOString()
+      } as P2PListing
+  });
+}
+
+export async function updateAdvertiserListing(listingId: string, updates: Partial<P2PListing>): Promise<void> {
+    const listingRef = doc(db, 'p2pListings', listingId);
+    await setDoc(listingRef, updates, { merge: true });
+}
+
+export async function updateAdvertiserStatus(userId: string, isOnline: boolean): Promise<void> {
+    const advertiserRef = doc(db, 'p2pAdvertisers', userId);
+    await updateDoc(advertiserRef, { isOnline });
 }

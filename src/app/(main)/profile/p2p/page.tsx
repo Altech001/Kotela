@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -9,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
-import { ChevronRight, Users, Coins, ThumbsUp, CheckCircle, RefreshCw, SlidersHorizontal, ChevronDown, Filter, Clock } from 'lucide-react';
+import { ChevronRight, Users, Coins, ThumbsUp, CheckCircle, RefreshCw, SlidersHorizontal, ChevronDown, Filter, Clock, Store } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -247,6 +248,7 @@ const AdvertiserCard = ({ advertiser, tradeMode, fiatCurrency }: { advertiser: t
 }
 
 export default function P2PTransferPage() {
+    const { user } = useAuth();
     const [selectedCrypto, setSelectedCrypto] = useState('KTC');
     const [amount, setAmount] = useState('');
     const [paymentMethod, setPaymentMethod] = useState('All Payments');
@@ -305,12 +307,23 @@ export default function P2PTransferPage() {
             <Card>
                 <CardHeader>
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                       <Tabs defaultValue="buy" onValueChange={(value) => setTradeMode(value as 'buy' | 'sell')} className="w-auto">
-                            <TabsList className="p-1 border bg-muted rounded-lg h-auto">
-                                <TabsTrigger value="buy" className="px-6 data-[state=active]:bg-background data-[state=active]:shadow-sm">Buy</TabsTrigger>
-                                <TabsTrigger value="sell" className="px-6 data-[state=active]:bg-background data-[state=active]:shadow-sm">Sell</TabsTrigger>
-                            </TabsList>
-                        </Tabs>
+                       <div className="flex items-center gap-4">
+                           <Tabs defaultValue="buy" onValueChange={(value) => setTradeMode(value as 'buy' | 'sell')} className="w-auto">
+                                <TabsList className="p-1 border bg-muted rounded-lg h-auto">
+                                    <TabsTrigger value="buy" className="px-6 data-[state=active]:bg-background data-[state=active]:shadow-sm">Buy</TabsTrigger>
+                                    <TabsTrigger value="sell" className="px-6 data-[state=active]:bg-background data-[state=active]:shadow-sm">Sell</TabsTrigger>
+                                </TabsList>
+                            </Tabs>
+                            {user?.isP2PAdvertiser ? (
+                                <Button variant="outline" asChild>
+                                    <Link href="/profile/p2p/dashboard">Advertiser Dashboard</Link>
+                                </Button>
+                            ) : (
+                                <Button variant="outline" asChild>
+                                    <Link href="/profile/p2p/apply">Become an Advertiser</Link>
+                                </Button>
+                            )}
+                       </div>
                         <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-start sm:justify-end gap-4 overflow-x-auto pb-2 -mb-2">
                                {cryptoCurrencies.map(crypto => (

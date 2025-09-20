@@ -31,6 +31,7 @@ export type User = {
   };
   totalBotRevenue?: number;
   activeBotCount?: number;
+  isP2PAdvertiser?: boolean;
 };
 
 export type UserInventoryItem = {
@@ -215,4 +216,52 @@ export type KycSubmission = {
     };
     documentImage: string; // Base64
     selfieImage: string; // Base64
+};
+
+export type P2PPaymentMethod = {
+  id: string;
+  name: string;
+  category: 'bank' | 'e-wallet' | 'mobile';
+};
+
+export type P2PRegion = {
+  id: string;
+  name: string;
+};
+
+export type AdvertiserProfile = {
+  userId: string;
+  displayName: string;
+  avatarUrl: string;
+  isVerified: boolean; // User's KYC status
+  isOnline: boolean;
+  supportedPaymentMethods: string[]; // array of payment method IDs
+  supportedRegions: string[]; // array of region IDs
+  createdAt: string; // ISO string
+};
+
+export type P2PListing = {
+  id: string;
+  advertiserId: string; // userId of advertiser
+  type: 'buy' | 'sell'; // from the advertiser's perspective
+  asset: 'KTC' | 'BTC' | 'USDT';
+  fiatCurrency: 'USD' | 'EUR' | 'UGX';
+  price: number;
+  availableAmount: number;
+  minLimit: number;
+  maxLimit: number;
+  paymentMethods: string[]; // actual names for display
+  createdAt: string; // ISO string
+};
+
+export type P2PTrade = {
+  id: string;
+  listingId: string;
+  advertiserId: string;
+  userId: string; // the user taking the offer
+  amountKtc: number;
+  amountFiat: number;
+  status: 'pending' | 'paid' | 'completed' | 'cancelled' | 'disputed';
+  createdAt: string; // ISO string
+  completedAt?: string; // ISO string
 };
