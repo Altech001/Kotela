@@ -211,19 +211,53 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [user]);
 
-  const verifyPhoneNumber = useCallback(async (phoneNumber: string, name: string, otp: string) => {
-    if (user) {
-      // In a real app, you would verify the OTP with a backend service.
-      // Here, we'll just simulate a successful verification.
-      if (otp === "123456") { // Example OTP
-        await updateUser({ 
-          isPhoneVerified: true,
-          phoneNumber: phoneNumber,
-          phoneHolderName: name,
+  const sendVerificationOtp = useCallback(async (phoneNumber: string, name: string): Promise<string> => {
+    if (!user) throw new Error("User not found.");
+    
+    // In a real app, you would use a service like Firebase Auth to send a real OTP.
+    // For this simulation, we'll generate a code and save its hash to the user doc.
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    // In a real app, you would use a secure, one-way hashing algorithm (e.g., bcrypt).
+    // For this simulation, a simple "hash" is sufficient.
+    const otpHash = `simulated-hash-of-${otp}`;
+    
+    const expiry = new Date();
+    expiry.setMinutes(expiry.getMinutes() + 10); // OTP is valid for 10 minutes
+
+    await updateUser({
+      otpHash,
+      otpExpiry: expiry.toISOString(),
+      phoneNumber: phoneNumber, // Temporarily store the number being verified
+      phoneHolderName: name,
+    });
+    
+    // We return the actual OTP here only because this is a simulation.
+    // In a real app, the OTP would be sent to the user's device and not returned by the function.
+    return otp;
+  }, [user, updateUser]);
+
+  const verifyPhoneNumber = useCallback(async (otp: string) => {
+    if (!user || !user.otpHash || !user.otpExpiry) {
+        throw new Error("No pending verification found.");
+    }
+    
+    if (new Date() > new Date(user.otpExpiry)) {
+        await updateUser({ otpHash: undefined, otpExpiry: undefined });
+        throw new Error("OTP has expired. Please request a new one.");
+    }
+
+    const expectedHash = `simulated-hash-of-${otp}`;
+    
+    if (user.otpHash === expectedHash) {
+        await updateUser({
+            isPhoneVerified: true,
+            // phoneNumber and phoneHolderName are already set from sendVerificationOtp
+            otpHash: undefined,
+            otpExpiry: undefined,
         });
-      } else {
+    } else {
         throw new Error("Invalid OTP. Please try again.");
-      }
     }
   }, [user, updateUser]);
 
@@ -382,7 +416,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
 
-  const value = { user, loading, login, signup, logout, updateUser, verifyPhoneNumber, addTransaction, transferKtc, addWalletAddress, deleteWalletAddress, toggleWalletStatus, toggleBotStatus, deleteBot };
+  const value = { user, loading, login, signup, logout, updateUser, sendVerificationOtp, verifyPhoneNumber, addTransaction, transferKtc, addWalletAddress, deleteWalletAddress, toggleWalletStatus, toggleBotStatus, deleteBot };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -65,6 +64,7 @@ import type { MobileMoneyAccount, Transaction } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format } from 'date-fns';
 import { Separator } from '@/components/ui/separator';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const profileFormSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
@@ -74,8 +74,7 @@ const profileFormSchema = z.object({
 type ProfileFormValues = z.infer<typeof profileFormSchema>;
 
 const phoneVerificationSchema = z.object({
-  phoneNumber: z.string().min(10, { message: "Please enter a valid phone number." }),
-  name: z.string().min(2, { message: "Account name is required." }),
+  accountId: z.string().min(1, { message: "Please select an account." }),
   otp: z.string().length(6, { message: "OTP must be 6 digits." }),
 });
 type PhoneVerificationFormValues = z.infer<typeof phoneVerificationSchema>;
@@ -89,13 +88,14 @@ const mobileMoneySchema = z.object({
 type MobileMoneyFormValues = z.infer<typeof mobileMoneySchema>;
 
 export default function SettingsPage() {
-  const { user, updateUser, verifyPhoneNumber } = useAuth();
+  const { user, updateUser, sendVerificationOtp, verifyPhoneNumber } = useAuth();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPhoneVerifyOpen, setIsPhoneVerifyOpen] = useState(false);
   const [mobileAccounts, setMobileAccounts] = useState<MobileMoneyAccount[]>([]);
-  const [dailyWithdrawals, setDailyWithdrawals] = useState<Transaction[]>([]);
+  const [dailyWithdrawals, setDailyWithdrawals = useState<Transaction[]>([]);
   const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
+  const [isCodeSent, setIsCodeSent] = useState(false);
 
   const profileForm = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
@@ -108,8 +108,7 @@ export default function SettingsPage() {
   const phoneVerificationForm = useForm<PhoneVerificationFormValues>({
     resolver: zodResolver(phoneVerificationSchema),
     defaultValues: {
-        phoneNumber: '',
-        name: '',
+        accountId: '',
         otp: '',
     }
   });
@@ -160,13 +159,34 @@ export default function SettingsPage() {
     setIsSubmitting(false);
   };
   
+  const handleSendCode = async () => {
+    const accountId = phoneVerificationForm.getValues("accountId");
+    if (!accountId) {
+        toast({ variant: 'destructive', title: 'Selection required', description: 'Please select a mobile money account first.' });
+        return;
+    }
+    const selectedAccount = mobileAccounts.find(acc => acc.id === accountId);
+    if (!selectedAccount) return;
+
+    setIsSubmitting(true);
+    try {
+        const simulatedOtp = await sendVerificationOtp(selectedAccount.number, selectedAccount.name);
+        toast({ title: 'Code Sent', description: `A verification code has been sent. For this simulation, the code is ${simulatedOtp}.`});
+        setIsCodeSent(true);
+    } catch (error: any) {
+        toast({ variant: 'destructive', title: 'Failed to Send Code', description: error.message });
+    }
+    setIsSubmitting(false);
+  }
+
   const onPhoneVerifySubmit = async (data: PhoneVerificationFormValues) => {
       setIsSubmitting(true);
       try {
-          await verifyPhoneNumber(data.phoneNumber, data.name, data.otp);
+          await verifyPhoneNumber(data.otp);
           toast({ title: 'Phone Verified', description: 'Your phone number has been successfully verified.'});
           setIsPhoneVerifyOpen(false);
           phoneVerificationForm.reset();
+          setIsCodeSent(false);
       } catch (error: any) {
           toast({ variant: 'destructive', title: 'Verification Failed', description: error.message });
       }
@@ -197,6 +217,9 @@ export default function SettingsPage() {
           toast({ variant: 'destructive', title: 'Failed to Remove', description: error.message });
       }
   }
+
+  const watchedAccountId = phoneVerificationForm.watch("accountId");
+  const selectedAccountForVerification = mobileAccounts.find(acc => acc.id === watchedAccountId);
 
   if (!user) {
     return <div className="flex h-screen items-center justify-center">Loading...</div>;
@@ -271,7 +294,7 @@ export default function SettingsPage() {
       
       <Card>
         <CardHeader>
-          <CardTitle>Identity & Verification</CardTitle>
+          <CardTitle>Identity &amp; Verification</CardTitle>
           <CardDescription>Manage your verification status.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -307,33 +330,40 @@ export default function SettingsPage() {
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>Verify Your Phone Number</DialogTitle>
-                        <DialogDescription>Enter your phone details and the 6-digit code sent to your device.</DialogDescription>
+                        <DialogDescription>Select one of your mobile money accounts to verify.</DialogDescription>
                     </DialogHeader>
                     <Form {...phoneVerificationForm}>
                         <form onSubmit={phoneVerificationForm.handleSubmit(onPhoneVerifySubmit)} className="space-y-4 py-4">
                              <FormField
                                 control={phoneVerificationForm.control}
-                                name="phoneNumber"
+                                name="accountId"
                                 render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Phone Number</FormLabel>
-                                    <FormControl><Input type="tel" placeholder="e.g. 0771234567" {...field} /></FormControl>
+                                    <FormLabel>Mobile Money Account</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select an account" />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            {mobileAccounts.map(acc => (
+                                                <SelectItem key={acc.id} value={acc.id}>{acc.provider} - {acc.number}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
                                     <FormMessage />
                                 </FormItem>
                                 )}
                             />
-                            <FormField
-                                control={phoneVerificationForm.control}
-                                name="name"
-                                render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Registered Name</FormLabel>
-                                    <FormControl><Input placeholder="e.g. John Doe" {...field} /></FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                                )}
-                            />
-                             <FormField
+                            {selectedAccountForVerification && (
+                                <Card className="bg-muted p-4">
+                                    <p className="text-sm font-semibold">{selectedAccountForVerification.name}</p>
+                                    <p className="text-sm text-muted-foreground">{selectedAccountForVerification.number}</p>
+                                </Card>
+                            )}
+
+                             {isCodeSent && <FormField
                                 control={phoneVerificationForm.control}
                                 name="otp"
                                 render={({ field }) => (
@@ -351,13 +381,21 @@ export default function SettingsPage() {
                                     <FormMessage />
                                 </FormItem>
                                 )}
-                            />
+                            />}
+
                             <DialogFooter>
                                 <Button type="button" variant="ghost" onClick={() => setIsPhoneVerifyOpen(false)}>Cancel</Button>
-                                <Button type="submit" disabled={isSubmitting}>
-                                    {isSubmitting && <Loader2 className="mr-2 animate-spin" />}
-                                    Verify Phone
-                                </Button>
+                                {!isCodeSent ? (
+                                     <Button type="button" onClick={handleSendCode} disabled={isSubmitting || !watchedAccountId}>
+                                        {isSubmitting && <Loader2 className="mr-2 animate-spin" />}
+                                        Send Code
+                                    </Button>
+                                ) : (
+                                    <Button type="submit" disabled={isSubmitting}>
+                                        {isSubmitting && <Loader2 className="mr-2 animate-spin" />}
+                                        Verify Phone
+                                    </Button>
+                                )}
                             </DialogFooter>
                         </form>
                     </Form>

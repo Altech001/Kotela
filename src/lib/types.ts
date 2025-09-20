@@ -1,5 +1,4 @@
 
-
 export type Wallet = {
   id: string;
   network: string;
@@ -23,6 +22,8 @@ export type User = {
   phoneHolderName?: string;
   wallets: Wallet[];
   referredBy?: string; // ID of the user who referred this user
+  otpHash?: string;
+  otpExpiry?: string; // ISO string
 };
 
 export type Notification = {
