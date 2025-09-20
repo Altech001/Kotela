@@ -187,6 +187,9 @@ export default function SettingsPage() {
           setIsPhoneVerifyOpen(false);
           phoneVerificationForm.reset();
           setIsCodeSent(false);
+          if (user) {
+            fetchMobileMoneyData(user.id);
+          }
       } catch (error: any) {
           toast({ variant: 'destructive', title: 'Verification Failed', description: error.message });
       }
