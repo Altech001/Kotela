@@ -39,15 +39,17 @@ const QRCodeDisplay = ({ address }: { address: string }) => {
 
 export default function DepositPage() {
     const { user, updateUser, addTransaction } = useAuth();
-    const [selectedNetwork, setSelectedNetwork] = useState('eth');
+    const [selectedNetwork, setSelectedNetwork] = useState('Main');
     const [amount, setAmount] = useState('');
     const { toast } = useToast();
     
-    const walletAddress = user?.walletAddresses[0] || "loading...";
+    const activeWallets = (user?.wallets || []).filter(w => w.status === 'active');
+    const selectedWallet = activeWallets.find(w => w.network === selectedNetwork);
+    const walletAddress = selectedWallet?.address || "No active wallet selected.";
 
     const handleCopy = () => {
-        if(!user) return;
-        navigator.clipboard.writeText(user.walletAddresses[0]);
+        if(!selectedWallet) return;
+        navigator.clipboard.writeText(walletAddress);
         toast({
             title: "Copied!",
             description: "Wallet address copied to clipboard.",
@@ -70,7 +72,7 @@ export default function DepositPage() {
         await addTransaction({
             type: 'deposit',
             amount: depositAmount,
-            description: `Deposited from external wallet`
+            description: `Deposited to ${selectedNetwork} wallet`
         });
 
         setAmount('');
@@ -81,13 +83,6 @@ export default function DepositPage() {
     }
     
     const amountAsUSD = (parseFloat(amount) || 0) * KTC_TO_USD_RATE;
-
-    const networks = [
-        { id: 'eth', name: `Kotela (KTC) - ${user?.walletAddresses[0]}` },
-        { id: 'sol', name: 'Solana' },
-        { id: 'btc', name: 'Bitcoin' },
-        { id: 'bnb', name: 'BNB Smart Chain' },
-    ];
 
     return (
         <div className="w-full max-w-2xl mx-auto space-y-6">
@@ -123,9 +118,9 @@ export default function DepositPage() {
                                         <SelectValue placeholder="Select a network" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {networks.map(network => (
-                                            <SelectItem key={network.id} value={network.id}>
-                                                {network.name.length > 30 ? `${network.name.substring(0, 30)}...` : network.name}
+                                        {activeWallets.map(wallet => (
+                                            <SelectItem key={wallet.id} value={wallet.network}>
+                                                {wallet.network}
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
@@ -149,17 +144,25 @@ export default function DepositPage() {
                         </div>
 
                         <div className="text-center space-y-4 p-4 bg-muted rounded-lg flex flex-col items-center">
-                            <div className="bg-background p-2 inline-block rounded-lg shadow-md">
-                               <QRCodeDisplay address={walletAddress} />
-                            </div>
-                             <div>
-                                <p className="text-xs text-muted-foreground mt-2">Your Wallet Address</p>
-                                <p className="text-sm font-mono break-all my-2 p-2 bg-background rounded-md">{walletAddress}</p>
-                                <Button variant="ghost" onClick={handleCopy} className="text-primary w-full">
-                                    <Copy className="mr-2" />
-                                    Copy Address
-                                </Button>
-                            </div>
+                           {selectedWallet ? (
+                             <>
+                                <div className="bg-background p-2 inline-block rounded-lg shadow-md">
+                                <QRCodeDisplay address={walletAddress} />
+                                </div>
+                                <div>
+                                    <p className="text-xs text-muted-foreground mt-2">Your {selectedNetwork} Address</p>
+                                    <p className="text-sm font-mono break-all my-2 p-2 bg-background rounded-md">{walletAddress}</p>
+                                    <Button variant="ghost" onClick={handleCopy} className="text-primary w-full">
+                                        <Copy className="mr-2" />
+                                        Copy Address
+                                    </Button>
+                                </div>
+                             </>
+                           ) : (
+                             <div className="flex flex-col items-center justify-center h-full">
+                               <p className="text-muted-foreground">Please select an active wallet.</p>
+                             </div>
+                           )}
                         </div>
                     </div>
                     
@@ -179,7 +182,7 @@ export default function DepositPage() {
 
                 </CardContent>
                 <CardFooter>
-                    <Button onClick={handleDeposit} className="w-full" size="lg">
+                    <Button onClick={handleDeposit} className="w-full" size="lg" disabled={!selectedWallet}>
                         Simulate Deposit
                     </Button>
                 </CardFooter>

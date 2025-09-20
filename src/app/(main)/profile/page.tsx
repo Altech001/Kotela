@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Coins, Eye, Copy, ShieldCheck, Settings, ArrowRight, User, Upload, Download, Send, PlusCircle, Globe, Trash2, EyeOff, Users, ArrowRightLeft, ChevronLeft, ChevronRight, LogOut } from 'lucide-react';
+import { Coins, Eye, Copy, ShieldCheck, Settings, ArrowRight, User, Upload, Download, Send, PlusCircle, Globe, Trash2, EyeOff, Users, ArrowRightLeft, ChevronLeft, ChevronRight, LogOut, Power, PowerOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -24,7 +24,7 @@ import Link from 'next/link';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import type { User as UserType } from '@/lib/types';
+import type { User as UserType, Wallet } from '@/lib/types';
 import { getReferredUsers } from '@/lib/actions';
 
 
@@ -140,7 +140,7 @@ const ReferralDialogContent = ({ user }: { user: UserType | null }) => {
 
 
 export default function ProfilePage() {
-  const { user, updateUser, transferKtc, addWalletAddress, logout } = useAuth();
+  const { user, updateUser, addWalletAddress, deleteWalletAddress, toggleWalletStatus, logout } = useAuth();
   const [isBalanceVisible, setIsBalanceVisible] = useState(false);
   const [isCreateWalletOpen, setIsCreateWalletOpen] = useState(false);
   const [isDeleteWalletOpen, setIsDeleteWalletOpen] = useState(false);
@@ -156,23 +156,23 @@ export default function ProfilePage() {
     });
   };
 
-  const handleCreateWallet = () => {
+  const handleCreateWallet = async () => {
       if (!selectedNetwork) {
           toast({ variant: 'destructive', title: 'Network required', description: 'Please select a network for your new wallet.' });
           return;
       }
-      if (user && user.walletAddresses.length >= 5) {
-          toast({ variant: 'destructive', title: 'Wallet limit reached', description: 'You can only have a maximum of 5 wallets.' });
-          setIsCreateWalletOpen(false);
-          return;
+      try {
+        const networkName = networks.find(n => n.id === selectedNetwork)?.name || 'New';
+        await addWalletAddress(networkName);
+        setIsCreateWalletOpen(false);
+        setSelectedNetwork('');
+        toast({
+            title: 'Wallet Created',
+            description: `A new ${networkName} wallet has been added to your account.`,
+        });
+      } catch (error: any) {
+         toast({ variant: 'destructive', title: 'Failed to create wallet', description: error.message });
       }
-      addWalletAddress();
-      setIsCreateWalletOpen(false);
-      setSelectedNetwork('');
-      toast({
-          title: 'Wallet Created',
-          description: `A new wallet has been added to your account.`,
-      });
   }
 
   const openDeleteDialog = (address: string) => {
@@ -180,10 +180,9 @@ export default function ProfilePage() {
     setIsDeleteWalletOpen(true);
   }
 
-  const handleDeleteWallet = () => {
+  const handleDeleteWallet = async () => {
       if (walletToDelete) {
-          // This functionality needs to be implemented in useAuth or similar
-          console.log("Deleting wallet:", walletToDelete);
+          await deleteWalletAddress(walletToDelete);
           toast({
               title: 'Wallet Deleted',
               description: `Wallet has been removed.`,
@@ -191,6 +190,14 @@ export default function ProfilePage() {
       }
       setIsDeleteWalletOpen(false);
       setWalletToDelete(null);
+  }
+
+  const handleToggleStatus = async (walletId: string) => {
+      await toggleWalletStatus(walletId);
+      toast({
+          title: 'Wallet Status Updated',
+          description: `The wallet status has been changed.`,
+      });
   }
 
   const toggleBalanceVisibility = () => {
@@ -237,20 +244,32 @@ export default function ProfilePage() {
         </CardHeader>
         <CardContent className="p-0">
             <div className="divide-y">
-                {user.walletAddresses.map(address => (
-                    <div key={address} className="p-4 grid grid-cols-3 items-center gap-4">
+                {(user.wallets || []).map(wallet => (
+                    <div key={wallet.id} className="p-4 grid grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_auto_auto] items-center gap-4">
                         <div className="flex items-center gap-3">
                             <Globe className="h-6 w-6 text-muted-foreground" />
                             <div>
-                                <p className="font-semibold">Main Wallet</p>
-                                <p className="text-xs text-muted-foreground font-mono">{`${address.substring(0, 6)}...${address.substring(address.length - 4)}`}</p>
+                                <p className="font-semibold">{wallet.network}</p>
+                                <p className="text-xs text-muted-foreground font-mono">{`${wallet.address.substring(0, 6)}...${wallet.address.substring(wallet.address.length - 4)}`}</p>
                             </div>
                         </div>
-                        <div className="text-center font-mono">
-                           {isBalanceVisible ? `${user.ktc.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} KTC` : hiddenBalance}
+                        <div className={cn("flex items-center gap-1.5 text-xs", wallet.status === 'active' ? 'text-green-500' : 'text-yellow-500')}>
+                            <div className={cn('w-2 h-2 rounded-full', wallet.status === 'active' ? 'bg-green-500' : 'bg-yellow-500')}></div>
+                            {wallet.status === 'active' ? 'Active' : 'Inactive'}
                         </div>
-                        <div className="flex justify-end gap-2">
-                            <Button variant="ghost" size="icon" onClick={() => handleCopy(address, `Wallet address`)}>
+                         <div className="text-center font-mono hidden md:block">
+                           {wallet.network === 'Main' && isBalanceVisible ? `${user.ktc.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} KTC` : hiddenBalance}
+                        </div>
+                        <div className="flex justify-end gap-1">
+                            <Button variant="ghost" size="icon" onClick={() => handleToggleStatus(wallet.id)}>
+                                {wallet.status === 'active' ? <PowerOff className="h-4 w-4" /> : <Power className="h-4 w-4" />}
+                            </Button>
+                            {wallet.network !== 'Main' && (
+                                <Button variant="ghost" size="icon" onClick={() => openDeleteDialog(wallet.id)}>
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                            )}
+                            <Button variant="ghost" size="icon" onClick={() => handleCopy(wallet.address, `${wallet.network} address`)}>
                                 <Copy className="h-4 w-4" />
                             </Button>
                         </div>
@@ -305,7 +324,7 @@ export default function ProfilePage() {
           </Button>
           <Dialog open={isCreateWalletOpen} onOpenChange={setIsCreateWalletOpen}>
             <DialogTrigger asChild>
-                <Button variant="outline" className="h-auto flex-col gap-2 p-4" disabled={(user.walletAddresses || []).length >= 5}>
+                <Button variant="outline" className="h-auto flex-col gap-2 p-4" disabled={(user.wallets || []).length >= 5}>
                     <PlusCircle className="h-6 w-6" />
                     <span>Create Wallet</span>
                 </Button>
@@ -323,7 +342,7 @@ export default function ProfilePage() {
                         </SelectTrigger>
                         <SelectContent>
                             {networks.map(network => (
-                                <SelectItem key={network.id} value={network.id} disabled={(user.walletAddresses || []).some(w => w.includes(network.name))}>
+                                <SelectItem key={network.id} value={network.id} disabled={(user.wallets || []).some(w => w.network === network.name)}>
                                     <div className="flex items-center gap-2">
                                         <Globe className="h-4 w-4" />
                                         <span>{network.name}</span>

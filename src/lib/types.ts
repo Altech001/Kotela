@@ -1,5 +1,11 @@
 
 
+export type Wallet = {
+  id: string;
+  network: string;
+  address: string;
+  status: 'active' | 'inactive';
+};
 
 export type User = {
   id: string;
@@ -12,7 +18,7 @@ export type User = {
   transactions: Transaction[];
   referralCode: string;
   isKycVerified: boolean;
-  walletAddresses: string[];
+  wallets: Wallet[];
   referredBy?: string; // ID of the user who referred this user
 };
 

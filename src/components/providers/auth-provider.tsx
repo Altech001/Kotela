@@ -1,9 +1,10 @@
 
+
 'use client';
 
 import { useState, useCallback, ReactNode, useEffect } from 'react';
 import { AuthContext } from '@/contexts/auth-context';
-import type { User, Transaction, Boost, Powerup } from '@/lib/types';
+import type { User, Transaction, Boost, Powerup, Wallet } from '@/lib/types';
 import { auth, db } from '@/lib/firebase';
 import {
   onAuthStateChanged,
@@ -18,7 +19,7 @@ import { powerupItems as localPowerupItems } from '@/lib/powerups-data';
 import { addNotification } from '@/lib/actions';
 
 
-const createWalletAddress = (uid: string) => `KTC_${uid.slice(0, 4)}${Date.now().toString(36).slice(-4)}${Math.random().toString(36).slice(2, 6)}`;
+const createWalletAddress = (network: string, uid: string) => `KTC_${network.slice(0,3).toUpperCase()}_${uid.slice(0, 4)}${Date.now().toString(36).slice(-4)}`;
 
 const createUserObject = (firebaseUser: FirebaseUser, extraData: Partial<User> = {}): User => ({
   id: firebaseUser.uid,
@@ -30,7 +31,14 @@ const createUserObject = (firebaseUser: FirebaseUser, extraData: Partial<User> =
   powerups: [],
   transactions: [],
   referralCode: `KOTELA-${firebaseUser.uid.slice(0, 8).toUpperCase()}`,
-  walletAddresses: [createWalletAddress(firebaseUser.uid)],
+  wallets: [
+    {
+        id: `wallet-${firebaseUser.uid.slice(0, 8)}-main`,
+        network: 'Main',
+        address: createWalletAddress('Main', firebaseUser.uid),
+        status: 'active',
+    }
+  ],
   isKycVerified: false,
   ...extraData,
 });
@@ -213,7 +221,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (!prev) return null;
         return {
           ...prev,
-          transactions: [...(prev.transactions || []), newTransaction],
+          transactions: [...(prev?.transactions || []), newTransaction],
         };
       });
     }
@@ -221,7 +229,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const transferKtc = useCallback(async (recipientIdentifier: string, amount: number) => {
     if (!user) throw new Error("You must be logged in to transfer KTC.");
-    if (recipientIdentifier === user.referralCode || (user.walletAddresses || []).includes(recipientIdentifier)) {
+    if (recipientIdentifier === user.referralCode || (user.wallets || []).some(w => w.address === recipientIdentifier)) {
       throw new Error("You cannot send KTC to yourself.");
     }
 
@@ -231,15 +239,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             
             const recipientQuery = query(usersRef, or(
                 where('referralCode', '==', recipientIdentifier),
-                where('walletAddresses', 'array-contains', recipientIdentifier)
+                where('wallets', 'array-contains', { address: recipientIdentifier }) // This is tricky for nested objects
             ));
-            const recipientSnapshot = await getDocs(recipientQuery);
+            
+            // Because of Firestore query limitations on nested arrays, we might need to fetch and filter client-side or restructure data.
+            // For now, let's try a direct wallet address query which might fail and then try referral code.
+            // A better solution would be a root-level collection for wallets if they need to be globally unique and searchable.
+            
+            const allUsersSnapshot = await getDocs(usersRef);
+            let recipientDoc: any = null;
+            let recipientData: User | null = null;
+            
+            for(const doc of allUsersSnapshot.docs) {
+                const u = doc.data() as User;
+                if(u.referralCode === recipientIdentifier || (u.wallets && u.wallets.some(w => w.address === recipientIdentifier))) {
+                    recipientDoc = doc;
+                    recipientData = u;
+                    break;
+                }
+            }
 
-            if (recipientSnapshot.empty) {
+
+            if (!recipientDoc || !recipientData) {
                 throw new Error("Recipient not found.");
             }
-            const recipientDoc = recipientSnapshot.docs[0];
-            const recipientData = recipientDoc.data() as User;
             const recipientRef = doc(db, 'users', recipientDoc.id);
 
             const senderRef = doc(db, 'users', user.id);
@@ -296,19 +319,44 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [user]);
 
-  const addWalletAddress = useCallback(async () => {
+ const addWalletAddress = useCallback(async (network: string) => {
     if (user) {
-      const currentAddresses = user.walletAddresses || [];
-      if (currentAddresses.length < 5) {
-        const newAddress = createWalletAddress(user.id);
-        const newAddresses = [...currentAddresses, newAddress];
-        await updateUser({ walletAddresses: newAddresses });
+      const currentWallets = user.wallets || [];
+      if (currentWallets.length >= 5) {
+        throw new Error("Wallet limit reached. You can only have a maximum of 5 wallets.");
       }
+      const newWallet: Wallet = {
+        id: `wallet-${user.id.slice(0,8)}-${network.toLowerCase()}-${Date.now().toString(36).slice(-4)}`,
+        network: network,
+        address: createWalletAddress(network, user.id),
+        status: 'active'
+      };
+      const newWallets = [...currentWallets, newWallet];
+      await updateUser({ wallets: newWallets });
+    }
+  }, [user, updateUser]);
+
+  const deleteWalletAddress = useCallback(async (walletId: string) => {
+    if (user) {
+        const newWallets = (user.wallets || []).filter(w => w.id !== walletId);
+        await updateUser({ wallets: newWallets });
+    }
+  }, [user, updateUser]);
+
+  const toggleWalletStatus = useCallback(async (walletId: string) => {
+    if (user) {
+        const newWallets = (user.wallets || []).map(w => {
+            if (w.id === walletId) {
+                return { ...w, status: w.status === 'active' ? 'inactive' : 'active' };
+            }
+            return w;
+        });
+        await updateUser({ wallets: newWallets });
     }
   }, [user, updateUser]);
 
 
-  const value = { user, loading, login, signup, logout, updateUser, addTransaction, transferKtc, addWalletAddress };
+  const value = { user, loading, login, signup, logout, updateUser, addTransaction, transferKtc, addWalletAddress, deleteWalletAddress, toggleWalletStatus };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

@@ -1,5 +1,5 @@
 'use client';
-import type { User, Transaction } from '@/lib/types';
+import type { User, Transaction, Wallet } from '@/lib/types';
 import { createContext } from 'react';
 
 type AuthContextType = {
@@ -11,7 +11,9 @@ type AuthContextType = {
   updateUser: (data: Partial<User>) => void;
   addTransaction: (transaction: Omit<Transaction, 'id' | 'timestamp'>) => Promise<void>;
   transferKtc: (recipientIdentifier: string, amount: number) => Promise<void>;
-  addWalletAddress: () => Promise<void>;
+  addWalletAddress: (network: string) => Promise<void>;
+  deleteWalletAddress: (walletId: string) => Promise<void>;
+  toggleWalletStatus: (walletId: string) => Promise<void>;
 };
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);

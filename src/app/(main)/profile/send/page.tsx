@@ -15,18 +15,13 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { useAuth } from '@/hooks/use-auth';
+import { getReferredUsers } from '@/lib/actions';
+import type { User as UserType } from '@/lib/types';
+
 
 const KTC_TO_USD_RATE = 1.25;
 const NETWORK_FEE_KTC = 0.15;
 const SAMPLE_QR_ADDRESS = "0x9f8g7h6j5k4l3m2n1p0qabcde12345fgh67890";
-
-const referrals = [
-    { id: 1, user: 'CryptoKing', avatar: 'https://picsum.photos/seed/ref1/40/40', walletAddress: '0x1a2b3c4d5e6f7g8h9i0jabcde12345fgh67890' },
-    { id: 2, user: 'SatoshiJr', avatar: 'https://picsum.photos/seed/ref2/40/40', walletAddress: '0x2b3c4d5e6f7g8h9i0jabcde12345fgh678901a' },
-    { id: 3, user: 'CoinDuchess', avatar: 'https://picsum.photos/seed/ref3/40/40', walletAddress: '0x3c4d5e6f7g8h9i0jabcde12345fgh678901a2b' },
-    { id: 4, user: 'MinerMike', avatar: 'https://picsum.photos/seed/ref4/40/40', walletAddress: '0x4d5e6f7g8h9i0jabcde12345fgh678901a2b3c' },
-    { id: 5, user: 'HodlHermit', avatar: 'https://picsum.photos/seed/ref5/40/40', walletAddress: '0x5e6f7g8h9i0jabcde12345fgh678901a2b3c4d' },
-];
 
 
 export default function SendPage() {
@@ -35,7 +30,14 @@ export default function SendPage() {
     const [amount, setAmount] = useState('');
     const [isQrDialogOpen, setIsQrDialogOpen] = useState(false);
     const [isAddressBookOpen, setIsAddressBookOpen] = useState(false);
+    const [referredUsers, setReferredUsers] = useState<UserType[]>([]);
     const { toast } = useToast();
+
+    useEffect(() => {
+      if (user) {
+        getReferredUsers(user.id).then(setReferredUsers);
+      }
+    }, [user]);
 
     const handlePaste = async () => {
         try {
@@ -136,7 +138,7 @@ export default function SendPage() {
                     <div className="space-y-2">
                         <Label htmlFor="address">Recipient Address</Label>
                         <div className="flex gap-2">
-                            <Input id="address" placeholder="Enter wallet address" value={address} onChange={(e) => setAddress(e.target.value)} />
+                            <Input id="address" placeholder="Enter wallet address or referral code" value={address} onChange={(e) => setAddress(e.target.value)} />
                             <Button variant="outline" size="icon" onClick={handlePaste}><ClipboardPaste /></Button>
                              <Dialog open={isAddressBookOpen} onOpenChange={setIsAddressBookOpen}>
                                 <DialogTrigger asChild>
@@ -147,15 +149,15 @@ export default function SendPage() {
                                         <DialogTitle>Select a Recipient</DialogTitle>
                                     </DialogHeader>
                                     <div className="space-y-2 py-4">
-                                        {referrals.map(referral => (
-                                            <button key={referral.id} onClick={() => handleSelectReferral(referral.walletAddress)} className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-muted text-left">
+                                        {referredUsers.map(refUser => (
+                                            <button key={refUser.id} onClick={() => handleSelectReferral(refUser.wallets[0].address)} className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-muted text-left">
                                                 <Avatar>
-                                                    <AvatarImage src={referral.avatar} alt={referral.user} />
-                                                    <AvatarFallback>{referral.user.substring(0,2)}</AvatarFallback>
+                                                    <AvatarImage src={refUser.avatarUrl} alt={refUser.name} />
+                                                    <AvatarFallback>{refUser.name.substring(0,2)}</AvatarFallback>
                                                 </Avatar>
                                                 <div className="flex-1">
-                                                    <p className="font-semibold">{referral.user}</p>
-                                                    <p className="text-xs text-muted-foreground truncate">{referral.walletAddress}</p>
+                                                    <p className="font-semibold">{refUser.name}</p>
+                                                    <p className="text-xs text-muted-foreground truncate">{refUser.wallets[0].address}</p>
                                                 </div>
                                             </button>
                                         ))}
