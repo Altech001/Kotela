@@ -30,6 +30,16 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+        // Ensures the `ignored` property is an array before pushing to it.
+        if (!Array.isArray(config.watchOptions.ignored)) {
+            config.watchOptions.ignored = [];
+        }
+        config.watchOptions.ignored.push('**/.genkit/**');
+    }
+    return config;
+  },
 };
 
 export default nextConfig;
