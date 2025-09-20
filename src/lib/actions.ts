@@ -535,51 +535,40 @@ export async function updateAdvertiserStatus(userId: string, isOnline: boolean):
 }
 
 export async function getActiveP2PListings(): Promise<EnrichedP2PListing[]> {
-    const advertisersRef = collection(db, 'p2pAdvertisers');
     const listingsRef = collection(db, 'p2pListings');
+    const listingsSnapshot = await getDocs(listingsRef);
 
-    // Get all online advertisers
-    const onlineAdvsQuery = query(advertisersRef, where('isOnline', '==', true));
-    const onlineAdvsSnapshot = await getDocs(onlineAdvsQuery);
-    const onlineAdvsMap = new Map<string, AdvertiserProfile>();
-    onlineAdvsSnapshot.forEach(doc => {
-        const data = doc.data();
-        onlineAdvsMap.set(doc.id, {
-            ...data,
-            createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString(),
-        } as AdvertiserProfile);
-    });
-
-    if (onlineAdvsMap.size === 0) {
+    if (listingsSnapshot.empty) {
         return [];
     }
-
-    // Get all listings from online advertisers
-    const onlineAdvsIds = Array.from(onlineAdvsMap.keys());
-    
-    if (onlineAdvsIds.length === 0) {
-        return [];
-    }
-
-    const listingsQuery = query(listingsRef, where('advertiserId', 'in', onlineAdvsIds));
-    const listingsSnapshot = await getDocs(listingsQuery);
 
     const enrichedListings: EnrichedP2PListing[] = [];
-    listingsSnapshot.forEach(doc => {
+
+    for (const listingDoc of listingsSnapshot.docs) {
         const listing = {
-             id: doc.id,
-             ...doc.data(),
-             createdAt: doc.data().createdAt?.toDate ? doc.data().createdAt.toDate().toISOString() : new Date().toISOString(),
+            id: listingDoc.id,
+            ...listingDoc.data(),
+            createdAt: listingDoc.data().createdAt?.toDate ? listingDoc.data().createdAt.toDate().toISOString() : new Date().toISOString(),
         } as P2PListing;
 
-        const advertiser = onlineAdvsMap.get(listing.advertiserId);
-        if (advertiser) {
-            enrichedListings.push({
-                ...listing,
-                advertiser,
-            });
+        if (listing.advertiserId) {
+            const advertiserRef = doc(db, 'p2pAdvertisers', listing.advertiserId);
+            const advertiserSnap = await getDoc(advertiserRef);
+
+            if (advertiserSnap.exists()) {
+                const advertiser = advertiserSnap.data() as AdvertiserProfile;
+                if (advertiser.isOnline) {
+                    enrichedListings.push({
+                        ...listing,
+                        advertiser: {
+                            ...advertiser,
+                            createdAt: advertiser.createdAt?.toDate ? advertiser.createdAt.toDate().toISOString() : new Date().toISOString(),
+                        },
+                    });
+                }
+            }
         }
-    });
+    }
 
     return enrichedListings.sort((a,b) => b.price - a.price);
 }
