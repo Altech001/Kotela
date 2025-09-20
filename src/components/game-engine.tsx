@@ -2,7 +2,7 @@
 "use client";
 
 import { useMemo, useEffect, useState } from "react";
-import { Pickaxe, Repeat, AlertTriangle, TimerIcon, Rocket, Snowflake, Zap, Clock, Gift, Bomb } from "lucide-react";
+import { Pickaxe, Repeat, AlertTriangle, TimerIcon, Rocket, Snowflake, Zap, Clock, Gift, Bomb, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useGame } from '@/hooks/use-game';
 import { useAuth } from '@/hooks/use-auth';
@@ -25,13 +25,15 @@ const iconMap: { [key: string]: React.ElementType } = {
   score_multiplier: Zap,
   extra_time: Clock,
   time_freeze: Snowflake,
-  mining_bot: Rocket,
+  mining_bot: Bot,
   permanent_multiplier: Zap,
   bot_upgrade: Rocket,
   rocket: Rocket,
   missile: Bomb,
   frenzy: Zap,
   scoreBomb: Gift,
+  extraTime: Clock,
+  freezeTime: Snowflake,
 };
 
 
@@ -101,15 +103,12 @@ export function GameEngine() {
   const BoostStatus = () => {
     if (gameStatus !== 'playing' || !activeBoostInfo) return null;
   
-    let icon = null;
-    let text = '';
-    const IconCmp = iconMap[activeBoostInfo.type] || Zap;
-    icon = <IconCmp className="h-4 w-4" />
-    text = `${activeBoostInfo.name} active! (${activeBoostInfo.timeLeft}s)`;
+    const IconCmp = iconMap[activeBoostInfo.id] || Zap;
+    const text = `${activeBoostInfo.name} active! (${activeBoostInfo.timeLeft}s)`;
   
     return (
       <span className={cn("absolute -bottom-6 flex items-center gap-1 font-bold text-xs", boostTextColor)}>
-        {icon}
+        <IconCmp className="h-4 w-4" />
         {text}
       </span>
     );
@@ -197,11 +196,14 @@ export function GameEngine() {
       <div className="flex flex-wrap items-center justify-center gap-2">
         {gameStatus === 'idle' && (
           <>
-            {extraTimeItems.map(item => (
-              <Button key={item.id} onClick={() => activateExtraTime(item.id)} variant="outline" size="sm">
-                <Clock /> +{item.value}s ({item.ownedQuantity})
-              </Button>
-            ))}
+            {extraTimeItems.map(item => {
+                const Icon = iconMap[item.id] || Clock;
+                return (
+                  <Button key={item.id} onClick={() => activateExtraTime(item.id)} variant="outline" size="sm">
+                    <Icon /> +{item.value}s ({item.ownedQuantity})
+                  </Button>
+                )
+            })}
           </>
         )}
         {gameStatus === 'playing' && (
@@ -245,4 +247,3 @@ export function GameEngine() {
     </div>
   );
 }
-

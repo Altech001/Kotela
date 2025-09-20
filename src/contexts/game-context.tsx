@@ -11,7 +11,7 @@ import { doc, setDoc, getDoc, updateDoc, deleteDoc, onSnapshot, runTransaction, 
 
 export type GameStatus = "idle" | "playing" | "ended";
 
-const BASE_GAME_DURATION = 30 * 1000; // 30 seconds in ms
+const BASE_GAME_DURATION = 30; // 30 seconds
 const BASE_MINING_RATE = 0.5; // KTC per second
 
 type StoreItem = BoostType | PowerupType;
@@ -44,7 +44,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [privacyWarning, setPrivacyWarning] = useState<string | null>(null);
   
-  // Game session listener
+  // Game session listener from Firestore
   useEffect(() => {
     if (!user) {
       setSession(null);
@@ -56,9 +56,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const unsubscribe = onSnapshot(sessionRef, (doc) => {
       if (doc.exists()) {
         const sessionData = doc.data() as GameSession;
-        // Check if the game has ended based on expectedEndTime
         if (sessionData.status === 'playing' && Date.now() >= sessionData.expectedEndTime) {
-           // Call endGame with the session data from the snapshot
            endGame(sessionData);
         } else {
           setSession(sessionData);
@@ -73,104 +71,104 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, [user]);
 
-  // Game timer & automatic mining effect
+  // Main game loop (timer, score calculation, etc.)
   useEffect(() => {
     let interval: NodeJS.Timeout | undefined;
 
     if (gameStatus === 'playing' && session) {
-      const tick = async () => {
+      interval = setInterval(() => {
         const now = Date.now();
-        let currentSession = session;
+        let currentSession = { ...session }; // Work with a local copy
 
-        // Fetch latest session data to avoid race conditions, especially for boost activations
-        if(user) {
-            const sessionRef = doc(db, 'gameSessions', user.id);
-            const docSnap = await getDoc(sessionRef);
-            if(docSnap.exists()) {
-                currentSession = docSnap.data() as GameSession;
-            } else {
-                return; // Session ended elsewhere
-            }
-        }
-        
         if (now >= currentSession.expectedEndTime) {
           endGame(currentSession);
           return;
         }
 
-        // Automatic Mining Logic
+        // --- Automatic Mining Logic ---
         let currentRate = BASE_MINING_RATE;
 
-        // Permanent Multiplier
+        // Apply permanent multiplier from power-ups
         const permMultiplierPowerup = user?.powerups.find(p => p.powerupId === 'perm-multiplier-1.5x');
         if (permMultiplierPowerup) currentRate *= 1.5;
 
-        // Active Boost/Powerup Multiplier
+        // Check for active boost/power-up and apply its effect
         if (currentSession.activeBoost && now < currentSession.activeBoost.endTime) {
-          if (currentSession.activeBoost.type === 'score_multiplier' || currentSession.activeBoost.type === 'frenzy') {
-            currentRate *= currentSession.activeBoost.value;
-          }
+            const boostType = currentSession.activeBoost.type;
+            if (boostType === 'score_multiplier' || boostType === 'frenzy') {
+                currentRate *= currentSession.activeBoost.value;
+            }
         } else if (currentSession.activeBoost) {
-           // Boost has expired, clear it
-           if(user){
-             const sessionRef = doc(db, 'gameSessions', user.id);
-             await updateDoc(sessionRef, { activeBoost: null });
-           }
+            // Boost has expired, clear it from local state for immediate UI update
+            currentSession.activeBoost = null;
         }
 
-        // Time freeze check
+        // Check if time is frozen
         const isTimeFrozen = currentSession.activeBoost?.type === 'time_freeze' && now < currentSession.activeBoost.endTime;
-
-        const scoreToAdd = isTimeFrozen ? 0 : currentRate * 1; // Add score per second, unless time is frozen
-
+        
+        // Calculate score to add for this tick (1 second)
+        // No score is added if time is frozen
+        const scoreToAdd = isTimeFrozen ? 0 : currentRate;
         const newScore = (currentSession.score || 0) + scoreToAdd;
         
-        if (user) {
-            const sessionRef = doc(db, 'gameSessions', user.id);
-            await updateDoc(sessionRef, { score: newScore });
-        }
-        
-        // Force a re-render to update timers on the UI.
-        // We read from the local `currentSession` to make the UI feel instant.
-        setSession(s => s ? {...currentSession, score: newScore} : null);
-      };
-      
-      interval = setInterval(tick, 1000);
+        // Update local state for immediate UI responsiveness
+        setSession(s => s ? { ...s, score: newScore, activeBoost: currentSession.activeBoost } : null);
+
+      }, 1000);
     }
     return () => clearInterval(interval);
-  }, [gameStatus, session, user]);
+  }, [gameStatus, session, user?.powerups]);
+
+  // Sync local session state to Firestore periodically
+  useEffect(() => {
+      let syncInterval: NodeJS.Timeout | undefined;
+      if (gameStatus === 'playing' && session && user) {
+          syncInterval = setInterval(async () => {
+              const sessionRef = doc(db, 'gameSessions', user.id);
+              // Only write if the session still exists locally
+              if(session) {
+                // Use set with merge to avoid overwriting if a concurrent change happened
+                await setDoc(sessionRef, session, { merge: true });
+              }
+          }, 2000); // Sync every 2 seconds
+      }
+      return () => clearInterval(syncInterval);
+  }, [session, gameStatus, user]);
 
 
   const startGame = async (extraDuration = 0) => {
     if (!user || gameStatus !== 'idle') return;
 
+    const totalDuration = BASE_GAME_DURATION + extraDuration;
     const startTime = Date.now();
-    const totalDuration = BASE_GAME_DURATION + (extraDuration * 1000);
     const newSession: GameSession = {
       userId: user.id,
       score: 0,
       startTime: startTime,
-      expectedEndTime: startTime + totalDuration,
-      duration: totalDuration / 1000,
+      expectedEndTime: startTime + totalDuration * 1000,
+      duration: totalDuration,
       status: 'playing',
       activeBoost: null,
     };
+    
+    // Set local state first for instant UI update
+    setGameStatus('playing');
+    setSession(newSession);
 
+    // Then write to Firestore
     const sessionRef = doc(db, 'gameSessions', user.id);
     await setDoc(sessionRef, newSession);
   };
 
   const endGame = useCallback(async (finalSession: GameSession) => {
-    if (!user || finalSession.status !== 'playing') return;
-
-    // Use a state to track that the game is ending to prevent race conditions
-    if (gameStatus === 'ended') return; 
+    if (!user || gameStatus === 'ended' || finalSession.status !== 'playing') return;
 
     setGameStatus('ended');
+
+    // Update local state to show final score
     setSession(s => s ? {...s, status: 'ended'} : null);
 
     const sessionRef = doc(db, 'gameSessions', user.id);
-    // Don't delete immediately, let the UI show final score
     await updateDoc(sessionRef, { status: 'ended' });
 
     const finalScore = finalSession.score;
@@ -233,9 +231,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
                 const newPowerups: UserPowerup[] = [...(currentUser.powerups || [])];
                 const existingPowerupIndex = newPowerups.findIndex(p => p.powerupId === powerupItem.id);
 
-                if (existingPowerupIndex > -1) {
+                 if (existingPowerupIndex > -1) {
                     const existingPowerup = newPowerups[existingPowerupIndex];
-                     if ((existingPowerup.quantity || 0) >= powerupItem.maxQuantity) {
+                     if (powerupItem.maxQuantity === 1) {
+                         throw `Already owned.`;
+                    }
+                    if ((existingPowerup.quantity || 0) >= powerupItem.maxQuantity) {
                          throw `Max quantity of ${powerupItem.name} reached.`;
                     }
                     newPowerups[existingPowerupIndex].quantity = (existingPowerup.quantity || 0) + 1;
@@ -282,7 +283,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
   }, [user, addTransaction]);
 
- const useItem = async (itemId: string) => {
+ const useItem = async (itemId: string): Promise<boolean> => {
     if (!user) return false;
     const userRef = doc(db, 'users', user.id);
     try {
@@ -295,19 +296,19 @@ export function GameProvider({ children }: { children: ReactNode }) {
             if (boostIndex > -1) {
                 const newBoosts = [...currentUser.boosts];
                 newBoosts[boostIndex].quantity -= 1;
-                const finalBoosts = newBoosts.filter(b => b.quantity > 0);
-                transaction.update(userRef, { boosts: finalBoosts });
-            } else {
-                 const powerupIndex = currentUser.powerups.findIndex((p: UserPowerup) => p.powerupId === itemId && (p.quantity || 0) > 0);
-                if (powerupIndex > -1) {
-                    const newPowerups = [...currentUser.powerups];
-                    newPowerups[powerupIndex].quantity = (newPowerups[powerupIndex].quantity || 1) - 1;
-                    const finalPowerups = newPowerups.filter(p => p.quantity > 0);
-                    transaction.update(userRef, { powerups: finalPowerups });
-                } else {
-                    throw "Item not available or out of stock.";
-                }
+                transaction.update(userRef, { boosts: newBoosts.filter(b => b.quantity > 0) });
+                return;
             }
+
+            const powerupIndex = currentUser.powerups.findIndex((p: UserPowerup) => p.powerupId === itemId && (p.quantity || 0) > 0);
+            if (powerupIndex > -1) {
+                const newPowerups = [...currentUser.powerups];
+                newPowerups[powerupIndex].quantity = (newPowerups[powerupIndex].quantity || 1) - 1;
+                transaction.update(userRef, { powerups: newPowerups.filter(p => p.quantity > 0) });
+                return;
+            }
+            
+            throw "Item not available or out of stock.";
         });
         return true;
     } catch (error) {
@@ -319,8 +320,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
  const activateExtraTime = async (itemId: string) => {
     if (gameStatus !== 'idle' || !user) return;
     
-    let itemInfo: BoostType | PowerupType | null = await getBoost(itemId);
-    if (!itemInfo) itemInfo = await getPowerup(itemId);
+    let itemInfo: BoostType | PowerupType | null = await getPowerup(itemId);
+    if (!itemInfo) itemInfo = await getBoost(itemId);
     
     if (!itemInfo || itemInfo.type !== 'extra_time') return;
     
@@ -334,8 +335,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (gameStatus !== 'playing' || !user || !session) return;
     if (session.activeBoost && itemId !== 'scoreBomb') return;
 
-    let itemInfo: BoostType | PowerupType | null = await getBoost(itemId);
-    if (!itemInfo) itemInfo = await getPowerup(itemId);
+    let itemInfo: BoostType | PowerupType | null = await getPowerup(itemId);
+    if (!itemInfo) itemInfo = await getBoost(itemId);
 
     if (!itemInfo) {
       console.error("Item details not found");
@@ -345,40 +346,42 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const consumed = await useItem(itemId);
     if (!consumed) return;
     
-    const sessionRef = doc(db, 'gameSessions', user.id);
     const now = Date.now();
+
+    // Instant effect items
+    if (itemInfo.id === 'scoreBomb') {
+        const newScore = (session.score || 0) + itemInfo.value;
+        setSession(s => s ? {...s, score: newScore} : null); // Update local state immediately
+        return;
+    }
 
     const activeBoostPayload = {
       id: itemInfo.id,
       name: itemInfo.name,
       type: itemInfo.type,
       value: itemInfo.value,
-      endTime: 0, 
+      endTime: 0,
     };
 
-    if (itemInfo.id === 'scoreBomb') {
-        const newScore = (session.score || 0) + itemInfo.value;
-        await updateDoc(sessionRef, { score: newScore });
-        return; // instant effect, no activeBoost needed
+    let durationMs = 0;
+    if (itemInfo.id === 'missile') durationMs = 3000;
+    else if (itemInfo.id === 'rocket') durationMs = 5000;
+    else if (itemInfo.id === 'frenzy') durationMs = 3000;
+    else if (itemInfo.id === 'freezeTime') durationMs = itemInfo.value * 1000;
+    else if (itemInfo.type === 'score_multiplier') durationMs = 5000; // Default for other multipliers
+
+    if (durationMs > 0) {
+        activeBoostPayload.endTime = now + durationMs;
     }
 
-    if (itemInfo.type === 'score_multiplier' || itemInfo.type === 'frenzy') {
-        const duration = itemInfo.id === 'missile' ? 3000 : 5000;
-        activeBoostPayload.endTime = now + duration;
-        await updateDoc(sessionRef, { activeBoost: activeBoostPayload });
-
-    } else if (itemInfo.type === 'time_freeze') {
-        activeBoostPayload.endTime = now + (itemInfo.value * 1000);
-        // We need to read the current session to safely update the end time
-        const currentSessionDoc = await getDoc(sessionRef);
-        if (currentSessionDoc.exists()) {
-          const currentSessionData = currentSessionDoc.data() as GameSession;
-          const newExpectedEndTime = currentSessionData.expectedEndTime + (itemInfo.value * 1000);
-          await updateDoc(sessionRef, { 
-              activeBoost: activeBoostPayload,
-              expectedEndTime: newExpectedEndTime
-          });
-        }
+    if (itemInfo.type === 'time_freeze') {
+        setSession(s => {
+            if (!s) return null;
+            const newExpectedEndTime = s.expectedEndTime + (itemInfo.value * 1000);
+            return { ...s, activeBoost: activeBoostPayload, expectedEndTime: newExpectedEndTime };
+        });
+    } else {
+        setSession(s => s ? {...s, activeBoost: activeBoostPayload} : null);
     }
  };
 
