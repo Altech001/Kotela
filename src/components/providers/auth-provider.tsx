@@ -36,28 +36,22 @@ const createUserObject = (firebaseUser: FirebaseUser, extraData: Partial<User> =
 
 async function initializeCollections() {
     const boostsRef = collection(db, 'boosts');
-    const boostsSnapshot = await getDocs(boostsRef);
-    if (boostsSnapshot.empty) {
-        const batch = writeBatch(db);
-        localStoreItems.forEach((item) => {
-            const docRef = doc(boostsRef, item.id);
-            batch.set(docRef, item);
-        });
-        await batch.commit();
-        console.log("Initialized 'boosts' collection from local data.");
-    }
-    
     const powerupsRef = collection(db, 'powerups');
-    const powerupsSnapshot = await getDocs(powerupsRef);
-    if (powerupsSnapshot.empty) {
-        const batch = writeBatch(db);
-        localPowerupItems.forEach((item) => {
-            const docRef = doc(powerupsRef, item.id);
-            batch.set(docRef, item);
-        });
-        await batch.commit();
-        console.log("Initialized 'powerups' collection from local data.");
-    }
+    const batch = writeBatch(db);
+
+    // This will now overwrite existing data, ensuring the DB is in sync with local files
+    localStoreItems.forEach((item) => {
+        const docRef = doc(boostsRef, item.id);
+        batch.set(docRef, item);
+    });
+
+    localPowerupItems.forEach((item) => {
+        const docRef = doc(powerupsRef, item.id);
+        batch.set(docRef, item);
+    });
+
+    await batch.commit();
+    console.log("Initialized/updated 'boosts' and 'powerups' collections from local data.");
 }
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
