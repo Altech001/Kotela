@@ -18,21 +18,28 @@ import {
 } from '@/components/ui/table';
 import { useAuth } from '@/hooks/use-auth';
 import { Trophy } from 'lucide-react';
-import { useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
+import { getDailyMines } from '@/lib/actions';
+import { Skeleton } from './ui/skeleton';
 
 export function Leaderboard() {
   const { user } = useAuth();
+  const [dailyScores, setDailyScores] = useState<{timestamp: string, score: number}[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Show only today's earnings
-  const dailyScores = useMemo(() => {
-    if (!user?.transactions) return [];
-    const today = new Date().toISOString().slice(0, 10);
-    return user.transactions
-      .filter(tx => tx.type === 'deposit' && tx.description === 'Gameplay earnings' && tx.timestamp.startsWith(today))
-      .sort((a, b) => b.amount - a.amount)
-      .slice(0, 5); // show top 5 daily scores
-  }, [user?.transactions]);
-
+  useEffect(() => {
+    const fetchScores = async () => {
+      if (!user) return;
+      setLoading(true);
+      const today = new Date().toISOString().slice(0, 10);
+      const scores = await getDailyMines(user.id, today);
+      // We only want to show top 5 scores
+      setDailyScores(scores.slice(0, 5));
+      setLoading(false);
+    }
+    fetchScores();
+  }, [user]);
+  
   return (
     <Card>
       <CardHeader>
@@ -52,15 +59,23 @@ export function Leaderboard() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {dailyScores.length > 0 ? (
-              dailyScores.map((tx, index) => (
-                <TableRow key={tx.id}>
+            {loading ? (
+               Array.from({ length: 3 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="h-4 w-4" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-12 ml-auto" /></TableCell>
+                  </TableRow>
+                ))
+            ) : dailyScores.length > 0 ? (
+              dailyScores.map((game, index) => (
+                <TableRow key={game.timestamp}>
                   <TableCell className="font-medium">{index + 1}</TableCell>
                   <TableCell>
-                    {new Date(tx.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {new Date(game.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </TableCell>
                   <TableCell className="text-right font-mono">
-                    {tx.amount.toLocaleString(undefined, {
+                    {game.score.toLocaleString(undefined, {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
                     })}

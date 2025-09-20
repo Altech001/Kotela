@@ -162,3 +162,20 @@ export async function getPowerup(powerupId: string): Promise<Powerup | null> {
     return null;
   }
 }
+
+export async function getDailyMines(userId: string, date: string): Promise<{timestamp: string, score: number}[]> {
+    try {
+        const dailyMinesRef = doc(db, 'users', userId, 'dailyMines', date);
+        const docSnap = await getDoc(dailyMinesRef);
+
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            // Sort by score descending and return
+            return (data.scores || []).sort((a: {score: number}, b: {score: number}) => b.score - a.score);
+        }
+        return [];
+    } catch (error) {
+        console.error('Error fetching daily mines:', error);
+        return [];
+    }
+}

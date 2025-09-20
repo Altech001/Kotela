@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/use-auth';
 import type { Boost as BoostType, Powerup as PowerupType, GameSession, UserPowerup, UserBoost } from '@/lib/types';
 import { runPrivacyAnalysis, getBoost, getPowerup } from '@/lib/actions';
 import { db } from '@/lib/firebase';
-import { doc, setDoc, getDoc, updateDoc, deleteDoc, onSnapshot, runTransaction, arrayUnion } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, deleteDoc, onSnapshot, runTransaction, arrayUnion, serverTimestamp } from 'firebase/firestore';
 
 
 export type GameStatus = "idle" | "playing" | "ended";
@@ -185,6 +185,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
         amount: finalScore,
         description: 'Gameplay earnings',
       });
+      
+      // Store daily mine score
+      const today = new Date().toISOString().slice(0, 10);
+      const dailyMinesRef = doc(db, 'users', user.id, 'dailyMines', today);
+      await setDoc(dailyMinesRef, {
+          scores: arrayUnion({ score: finalScore, timestamp: new Date().toISOString() })
+      }, { merge: true });
     }
 
     const gameData = JSON.stringify({ finalScore: finalScore, endTime: new Date().toISOString() });
@@ -302,20 +309,30 @@ export function GameProvider({ children }: { children: ReactNode }) {
             if (!userDoc.exists()) throw "User does not exist.";
             
             const currentUser = userDoc.data() as any;
+            
+            let itemFound = false;
+            // Try to find and decrement in boosts
             const newBoosts: UserBoost[] = [...currentUser.boosts];
-            const newPowerups: UserPowerup[] = [...currentUser.powerups];
-
             const boostIndex = newBoosts.findIndex((b: UserBoost) => b.boostId === itemId && b.quantity > 0);
-            const powerupIndex = newPowerups.findIndex((p: UserPowerup) => p.powerupId === itemId && (p.quantity || 0) > 0);
-
             if (boostIndex > -1) {
                 newBoosts[boostIndex].quantity -= 1;
                 transaction.update(userRef, { boosts: newBoosts });
-            } else if (powerupIndex > -1) {
-                newPowerups[powerupIndex].quantity = (newPowerups[powerupIndex].quantity || 1) - 1;
-                transaction.update(userRef, { powerups: newPowerups });
-            } else {
-                throw "Item not available or out of stock.";
+                itemFound = true;
+            }
+
+            // If not found in boosts, try powerups
+            if (!itemFound) {
+                const newPowerups: UserPowerup[] = [...currentUser.powerups];
+                const powerupIndex = newPowerups.findIndex((p: UserPowerup) => p.powerupId === itemId && (p.quantity || 0) > 0);
+                if (powerupIndex > -1) {
+                    newPowerups[powerupIndex].quantity = (newPowerups[powerupIndex].quantity || 1) - 1;
+                    transaction.update(userRef, { powerups: newPowerups });
+                    itemFound = true;
+                }
+            }
+
+            if (!itemFound) {
+                 throw "Item not available or out of stock.";
             }
         });
         return true;
@@ -411,5 +428,3 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
 }
-
-    
