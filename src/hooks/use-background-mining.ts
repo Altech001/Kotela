@@ -39,11 +39,15 @@ export function useBackgroundMining() {
           
           let baseRate = KTC_PER_HOUR;
           const botUpgrade = (user.powerups || []).find(p => p.powerupId === 'bot-upgrade-1');
-          if(botUpgrade) {
-            baseRate *= botUpgrade.value;
-          }
           
-          const totalRate = baseRate * activeMiningBots.length;
+          const totalRate = activeMiningBots.reduce((acc) => {
+              let botRate = baseRate;
+              if(botUpgrade) {
+                  botRate *= botUpgrade.value;
+              }
+              return acc + botRate;
+          }, 0);
+
           const ktcMined = hoursElapsed * totalRate;
 
           if (ktcMined > 0) {
