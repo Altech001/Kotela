@@ -193,9 +193,16 @@ export async function getReferredUsers(referrerId: string): Promise<User[]> {
 
 export async function getMobileMoneyAccounts(userId: string): Promise<MobileMoneyAccount[]> {
   const accountsRef = collection(db, 'mobileMoneyAccounts');
-  const q = query(accountsRef, where('userId', '==', userId), orderBy('createdAt', 'desc'));
+  const q = query(accountsRef, where('userId', '==', userId));
   const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MobileMoneyAccount));
+  const accounts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MobileMoneyAccount));
+  
+  // Sort manually after fetching
+  return accounts.sort((a, b) => {
+    const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return dateB - dateA;
+  });
 }
 
 export async function addMobileMoneyAccount(accountData: Omit<MobileMoneyAccount, 'id' | 'createdAt'>) {
