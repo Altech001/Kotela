@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Pickaxe, Coins, TrendingUp, User, Gift, Newspaper } from "lucide-react";
+import { Pickaxe, Coins, TrendingUp, User, Gift, Newspaper, History } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGame } from "@/hooks/use-game";
 
@@ -10,7 +10,7 @@ const navItems = [
   { href: "/game", label: "Mine", icon: Pickaxe },
   { href: "/leaderboard", label: "Ranks", icon: TrendingUp },
   { href: "/store", label: "Store", icon: Coins },
-  { href: "/news", label: "News", icon: Newspaper },
+  { href: "/history", label: "History", icon: History },
   { href: "/profile", label: "Profile", icon: User },
 ];
 
@@ -23,7 +23,7 @@ export function MobileNav() {
     <nav className="md:hidden fixed bottom-0 left-0 z-50 w-full h-16 bg-background border-t">
       <div className="grid h-full grid-cols-5 mx-auto font-medium">
         {navItems.map((item) => {
-          const isActive = pathname === item.href;
+          const isActive = pathname.startsWith(item.href);
           const isMining = gameStatus === "playing" && item.href === "/game";
           return (
             <Link
