@@ -115,25 +115,29 @@ export function GameEngine() {
     );
   };
   
-  const userOwnedItems: GameItem[] = useMemo(() => {
-    if (!user || allItems.length === 0) return [];
-    
-    const ownedBoosts = user.boosts.map(userBoost => {
-        const item = allItems.find(i => i.id === userBoost.boostId);
-        return item ? { ...item, ownedQuantity: userBoost.quantity } : null;
-    }).filter(Boolean) as GameItem[];
-
-    const ownedPowerups = user.powerups.map(userPowerup => {
-        const item = allItems.find(i => i.id === userPowerup.powerupId);
-        return item ? { ...item, ownedQuantity: userPowerup.quantity || 0 } : null;
-    }).filter(Boolean) as GameItem[];
-    
-    return [...ownedBoosts, ...ownedPowerups].filter(item => item.ownedQuantity > 0);
+  const allGameItems: GameItem[] = useMemo(() => {
+    if (allItems.length === 0) return [];
+  
+    return allItems
+      .filter(item => item.type !== 'mining_bot' && item.type !== 'bot_upgrade' && item.type !== 'permanent_multiplier')
+      .map(item => {
+        let ownedQuantity = 0;
+        if (user) {
+          if ('maxQuantity' in item) { // It's a Powerup
+            const ownedPowerup = user.powerups.find(p => p.powerupId === item.id);
+            ownedQuantity = ownedPowerup?.quantity || 0;
+          } else { // It's a Boost
+            const ownedBoost = user.boosts.find(b => b.boostId === item.id);
+            ownedQuantity = ownedBoost?.quantity || 0;
+          }
+        }
+        return { ...item, ownedQuantity };
+      });
   }, [user, allItems]);
 
 
-  const extraTimeItems = userOwnedItems.filter(item => item.type === 'extra_time');
-  const inGameItems = userOwnedItems.filter(item => item.type !== 'extra_time' && item.type !== 'mining_bot' && item.type !== 'bot_upgrade' && item.type !== 'permanent_multiplier' );
+  const extraTimeItems = allGameItems.filter(item => item.type === 'extra_time');
+  const inGameItems = allGameItems.filter(item => item.type !== 'extra_time');
 
 
   return (
@@ -200,7 +204,7 @@ export function GameEngine() {
             {extraTimeItems.map(item => {
                 const Icon = iconMap[item.id] || Clock;
                 return (
-                  <Button key={item.id} onClick={() => activateExtraTime(item.id)} variant="outline" size="sm">
+                  <Button key={item.id} onClick={() => activateExtraTime(item.id)} variant="outline" size="sm" disabled={item.ownedQuantity <= 0}>
                     <Icon /> +{item.value}s ({item.ownedQuantity})
                   </Button>
                 )
@@ -211,8 +215,9 @@ export function GameEngine() {
           <>
             {inGameItems.map(item => {
               const Icon = iconMap[item.id] || Zap;
+              const isDisabled = (!!activeBoostInfo && item.type !== 'scoreBomb') || item.ownedQuantity <= 0;
               return (
-                  <Button key={item.id} onClick={() => activateBoost(item.id)} disabled={!!activeBoostInfo && item.type !== 'scoreBomb'} variant="outline" size="sm">
+                  <Button key={item.id} onClick={() => activateBoost(item.id)} disabled={isDisabled} variant="outline" size="sm">
                     <Icon />({item.ownedQuantity})
                   </Button>
               )

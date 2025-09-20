@@ -333,7 +333,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     try {
         await runTransaction(db, async (transaction) => {
             const userDoc = await transaction.get(userRef);
-            if (!userDoc.exists()) throw "User does not exist.";
+            if (!userDoc.exists()) throw new Error("User not found.");
             
             const currentUser = userDoc.data() as any;
             
@@ -359,7 +359,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
             }
 
             if (!itemFound) {
-                 throw "Item not available or out of stock.";
+                 throw new Error("Item not available or out of stock.");
             }
         });
         return true;
