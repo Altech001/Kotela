@@ -161,8 +161,8 @@ export default function ProfilePage() {
           toast({ variant: 'destructive', title: 'Network required', description: 'Please select a network for your new wallet.' });
           return;
       }
-      if (user && user.walletAddresses.length >= 3) {
-          toast({ variant: 'destructive', title: 'Wallet limit reached', description: 'You can only have a maximum of 3 wallets.' });
+      if (user && user.walletAddresses.length >= 5) {
+          toast({ variant: 'destructive', title: 'Wallet limit reached', description: 'You can only have a maximum of 5 wallets.' });
           setIsCreateWalletOpen(false);
           return;
       }
@@ -313,8 +313,26 @@ export default function ProfilePage() {
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>Create a New Wallet</DialogTitle>
-                    <DialogDescription>Create a new wallet address for deposits and withdrawals.</DialogDescription>
+                    <DialogDescription>Select a network to create a new wallet address for deposits and withdrawals.</DialogDescription>
                 </DialogHeader>
+                 <div className="py-4 space-y-4">
+                    <Label htmlFor="network">Network</Label>
+                    <Select onValueChange={setSelectedNetwork} value={selectedNetwork}>
+                        <SelectTrigger id="network">
+                            <SelectValue placeholder="Select a network" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {networks.map(network => (
+                                <SelectItem key={network.id} value={network.id} disabled={(user.walletAddresses || []).some(w => w.includes(network.name))}>
+                                    <div className="flex items-center gap-2">
+                                        <Globe className="h-4 w-4" />
+                                        <span>{network.name}</span>
+                                    </div>
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
                 <DialogFooter>
                     <Button variant="outline" onClick={() => setIsCreateWalletOpen(false)}>Cancel</Button>
                     <Button onClick={handleCreateWallet}>Create Wallet</Button>
