@@ -2,6 +2,7 @@ import { UserNav } from './user-nav';
 import { DesktopNav } from './desktop-nav';
 import Link from 'next/link';
 import { KotelaIcon } from '../icons';
+import { NotificationBell } from './notification-bell';
 
 export function Header() {
   return (
@@ -13,7 +14,8 @@ export function Header() {
       <div className="flex-1 flex justify-center">
         <DesktopNav />
       </div>
-      <div className="w-[110px] flex justify-end">
+      <div className="flex items-center gap-2">
+        <NotificationBell />
         <UserNav />
       </div>
     </header>

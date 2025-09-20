@@ -2,24 +2,20 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { useToast } from './use-toast';
 import { useAuth } from './use-auth';
-import { getBackgroundMiningSummary } from '@/lib/actions';
+import { getBackgroundMiningSummary, addNotification } from '@/lib/actions';
 
 const KTC_PER_HOUR = 1;
 
 export function useBackgroundMining() {
   const { user, updateUser, addTransaction } = useAuth();
-  const { toast } = useToast();
   const processedRef = useRef(false);
 
   useEffect(() => {
     const processOfflineMining = async () => {
       if (!user || processedRef.current) return;
 
-      const hasMiningBot = user.boosts.some(
-        (b) => b.boostId === 'bot-1' && b.quantity > 0
-      );
+      const hasMiningBot = user.powerups.some(p => p.powerupId === 'bot-1' && p.quantity > 0) || user.boosts.some(b => b.boostId === 'bot-1' && b.quantity > 0);
       if (!hasMiningBot) return;
 
       const lastSeen = localStorage.getItem(`lastSeen_${user.id}`);
@@ -28,11 +24,15 @@ export function useBackgroundMining() {
       if (lastSeen) {
         const startTime = parseInt(lastSeen, 10);
         const hoursElapsed = (now - startTime) / (1000 * 60 * 60);
-        // We set a minimum threshold to avoid tiny transactions on quick refreshes
         const MIN_HOURS = 0.001; // about 3.6 seconds
 
         if (hoursElapsed > MIN_HOURS) {
-          const ktcMined = hoursElapsed * KTC_PER_HOUR;
+          
+          let rate = KTC_PER_HOUR;
+          const botUpgrade = user.powerups.find(p => p.powerupId === 'bot-upgrade-1');
+          if(botUpgrade) rate *= botUpgrade.value;
+
+          const ktcMined = hoursElapsed * rate;
           const newKtc = user.ktc + ktcMined;
 
           await updateUser({ ktc: newKtc });
@@ -48,14 +48,13 @@ export function useBackgroundMining() {
             new Date(now).toISOString(),
             ktcMined
           );
-
-          toast({
+          
+          await addNotification(user.id, {
             title: 'Background Mining Report',
             description: summaryResult.summary,
           });
         }
       }
-      // Mark as processed for this session to avoid re-triggering on hot-reloads
       processedRef.current = true; 
     };
 
@@ -67,13 +66,11 @@ export function useBackgroundMining() {
           localStorage.setItem(`lastSeen_${user.id}`, Date.now().toString());
         }
       } else {
-         // When returning to the tab, re-process to catch time away
          processedRef.current = false;
          processOfflineMining();
       }
     };
     
-    // Set timestamp when user navigates away or closes tab
     window.addEventListener('beforeunload', () => {
         if (user) {
             localStorage.setItem(`lastSeen_${user.id}`, Date.now().toString());
@@ -84,10 +81,9 @@ export function useBackgroundMining() {
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      // Ensure the timestamp is set one last time on cleanup
        if (user) {
          localStorage.setItem(`lastSeen_${user.id}`, Date.now().toString());
        }
     };
-  }, [user, updateUser, toast, addTransaction]);
+  }, [user, updateUser, addTransaction]);
 }

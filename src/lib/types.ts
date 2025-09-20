@@ -1,5 +1,6 @@
 
 
+
 export type User = {
   id: string;
   email: string;
@@ -14,6 +15,15 @@ export type User = {
   walletAddresses: string[];
   referredBy?: string; // ID of the user who referred this user
 };
+
+export type Notification = {
+    id: string;
+    userId: string;
+    title: string;
+    description: string;
+    timestamp: string; // ISO string
+    isRead: boolean;
+}
 
 export type Boost = {
   id:string;

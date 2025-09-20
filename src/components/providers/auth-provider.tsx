@@ -15,6 +15,7 @@ import {
 import { doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs, writeBatch, arrayUnion, runTransaction, or } from 'firebase/firestore';
 import { storeItems as localStoreItems } from '@/lib/data';
 import { powerupItems as localPowerupItems } from '@/lib/powerups-data';
+import { addNotification } from '@/lib/actions';
 
 
 const createWalletAddress = (uid: string) => `KTC_${uid.slice(0, 4)}${Date.now().toString(36).slice(-4)}${Math.random().toString(36).slice(2, 6)}`;
@@ -122,6 +123,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             description: `Signup bonus for using referral code ${extraData.referralCode}`,
           };
           newUser.transactions.push(newUserBonusTx);
+          
+          await addNotification(newUser.id, { title: 'Referral Bonus!', description: `You received ${NEW_USER_BONUS} KTC for using a referral code.` });
+
 
           const directReferrerRef = doc(db, 'users', directReferrerDoc.id);
           const directReferrerBonusTx: Transaction = {
@@ -135,6 +139,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             ktc: directReferrerData.ktc + TIER_1_BONUS, 
             transactions: arrayUnion(directReferrerBonusTx) 
           });
+          
+          await addNotification(directReferrerDoc.id, { title: 'Referral Bonus!', description: `You received ${TIER_1_BONUS} KTC for referring ${newUser.name}.` });
+
 
           if (directReferrerData.referredBy) {
             const indirectReferrerRef = doc(db, 'users', directReferrerData.referredBy);
@@ -152,6 +159,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                  ktc: indirectReferrerData.ktc + TIER_2_BONUS,
                  transactions: arrayUnion(indirectReferrerBonusTx)
                });
+               
+               await addNotification(indirectReferrerDoc.id, { title: 'Tier 2 Referral Bonus!', description: `You received ${TIER_2_BONUS} KTC from a tier 2 referral.` });
             }
           }
         }

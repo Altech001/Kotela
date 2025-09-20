@@ -4,8 +4,8 @@
 import { analyzePrivacyRisks } from '@/ai/flows/privacy-risk-analysis';
 import { backgroundMiningSummary } from '@/ai/flows/background-mining-summary';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, orderBy, query, addDoc, serverTimestamp, where, doc, getDoc } from 'firebase/firestore';
-import type { User, Comment, Boost, Powerup } from '@/lib/types';
+import { collection, getDocs, orderBy, query, addDoc, serverTimestamp, where, doc, getDoc, writeBatch } from 'firebase/firestore';
+import type { User, Comment, Boost, Powerup, Notification } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 
 export async function runPrivacyAnalysis(gameplayData: string) {
@@ -36,7 +36,7 @@ export async function getBackgroundMiningSummary(
   } catch (error) {
     console.error('Error in background mining summary:', error);
     return {
-      summary: `You mined ${ktcMined.toFixed(2)} KTC while you were away.`,
+      summary: `You mined ${ktcMined.toFixed(4)} KTC while you were away.`,
     };
   }
 }
@@ -177,5 +177,34 @@ export async function getDailyMines(userId: string, date: string): Promise<{time
     } catch (error) {
         console.error('Error fetching daily mines:', error);
         return [];
+    }
+}
+
+export async function addNotification(userId: string, notificationData: Omit<Notification, 'id' | 'userId' | 'timestamp' | 'isRead'>) {
+    try {
+        const notificationsRef = collection(db, 'users', userId, 'notifications');
+        const newNotification = {
+            ...notificationData,
+            userId,
+            timestamp: serverTimestamp(),
+            isRead: false,
+        };
+        await addDoc(notificationsRef, newNotification);
+    } catch (error) {
+        console.error("Error adding notification:", error);
+    }
+}
+
+export async function markNotificationsAsRead(userId: string, notificationIds: string[]) {
+    try {
+        const batch = writeBatch(db);
+        const notificationsRef = collection(db, 'users', userId, 'notifications');
+        notificationIds.forEach(id => {
+            const docRef = doc(notificationsRef, id);
+            batch.update(docRef, { isRead: true });
+        });
+        await batch.commit();
+    } catch (error) {
+        console.error("Error marking notifications as read:", error);
     }
 }
