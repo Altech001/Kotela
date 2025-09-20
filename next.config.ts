@@ -43,8 +43,22 @@ const nextConfig: NextConfig = {
     if (Array.isArray(config.watchOptions.ignored)) {
         config.watchOptions.ignored.push('**/.genkit/**');
     }
+    
+    // Ensure Genkit's dependencies are treated as external to avoid bundling issues
+    if (!isServer) {
+        config.externals.push('long-timeout', 'gaxios', 'google-auth-library');
+    }
+
 
     return config;
+  },
+  experimental: {
+    // This is needed to ensure that the Genkit flow files are not bundled by webpack
+    serverComponentsExternalPackages: [
+      'long-timeout',
+      'gaxios',
+      'google-auth-library',
+    ],
   },
 };
 
