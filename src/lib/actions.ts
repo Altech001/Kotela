@@ -479,7 +479,7 @@ export async function createOrUpdateAdvertiser(profile: Omit<AdvertiserProfile, 
         orders: 0,
         completion: 100,
         rating: 5,
-        avgReleaseTime: 5, // default 5 minutes
+        avgReleaseTime: 5,
         createdAt: serverTimestamp(),
     };
     
@@ -557,6 +557,11 @@ export async function getActiveP2PListings(): Promise<EnrichedP2PListing[]> {
 
     // Get all listings from online advertisers
     const onlineAdvsIds = Array.from(onlineAdvsMap.keys());
+    
+    if (onlineAdvsIds.length === 0) {
+        return [];
+    }
+
     const listingsQuery = query(listingsRef, where('advertiserId', 'in', onlineAdvsIds));
     const listingsSnapshot = await getDocs(listingsQuery);
 
@@ -579,5 +584,6 @@ export async function getActiveP2PListings(): Promise<EnrichedP2PListing[]> {
 
     return enrichedListings.sort((a,b) => b.price - a.price);
 }
+
 
 
