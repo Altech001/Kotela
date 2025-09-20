@@ -1,5 +1,5 @@
 
-"use client";
+'use client';
 
 import { createContext, useState, useEffect, useCallback, ReactNode, useMemo } from 'react';
 import { useAuth } from '@/hooks/use-auth';
@@ -12,7 +12,7 @@ import { doc, setDoc, getDoc, updateDoc, deleteDoc, onSnapshot, runTransaction, 
 
 export type GameStatus = "idle" | "playing" | "ended";
 
-const BASE_GAME_DURATION = 30; // 30 seconds
+const DEFAULT_GAME_DURATION = 30; // 30 seconds
 const BASE_MINING_RATE = 0.5; // KTC per second
 
 type StoreItem = BoostType | PowerupType;
@@ -44,6 +44,18 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [isStoreOpen, setIsStoreOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [privacyWarning, setPrivacyWarning] = useState<string | null>(null);
+  const [baseGameDuration, setBaseGameDuration] = useState(DEFAULT_GAME_DURATION);
+  
+  // Fetch game config from Firestore
+  useEffect(() => {
+    const configRef = doc(db, 'config', 'gameConfig');
+    const unsubscribe = onSnapshot(configRef, (doc) => {
+      if (doc.exists()) {
+        setBaseGameDuration(doc.data().baseGameDuration || DEFAULT_GAME_DURATION);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
   
   // Game session listener from Firestore
   useEffect(() => {
@@ -145,7 +157,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const startGame = async (extraDuration = 0) => {
     if (!user || gameStatus !== 'idle') return;
 
-    const totalDuration = BASE_GAME_DURATION + extraDuration;
+    const totalDuration = baseGameDuration + extraDuration;
     const startTime = Date.now();
     const newSession: GameSession = {
       userId: user.id,
@@ -212,7 +224,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (gameStatus === 'idle') {
       await startGame();
     }
-  }, [gameStatus, user]);
+  }, [gameStatus, user, startGame]);
 
   const resetGame = async () => {
     if(!user) return;
@@ -442,3 +454,5 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
 }
+
+    

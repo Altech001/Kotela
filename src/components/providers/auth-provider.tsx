@@ -46,6 +46,7 @@ const createUserObject = (firebaseUser: FirebaseUser, extraData: Partial<User> =
 async function initializeCollections() {
     const boostsRef = collection(db, 'boosts');
     const powerupsRef = collection(db, 'powerups');
+    const configRef = doc(db, 'config', 'gameConfig');
     const batch = writeBatch(db);
 
     // This will now overwrite existing data, ensuring the DB is in sync with local files
@@ -59,8 +60,15 @@ async function initializeCollections() {
         batch.set(docRef, item);
     });
 
+    // Initialize game config if it doesn't exist
+    const configDoc = await getDoc(configRef);
+    if (!configDoc.exists()) {
+      batch.set(configRef, { baseGameDuration: 30 });
+    }
+
+
     await batch.commit();
-    console.log("Initialized/updated 'boosts' and 'powerups' collections from local data.");
+    console.log("Initialized/updated 'boosts', 'powerups', and 'gameConfig' collections from local data.");
 }
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
@@ -420,3 +428,5 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
+
+    
