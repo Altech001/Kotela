@@ -182,11 +182,11 @@ export default function MyBotsPage() {
                                     <div className="flex items-center gap-4">
                                         <BotIcon className="h-8 w-8 text-primary" />
                                         <div>
-                                            <p className="font-semibold flex items-center gap-2">{bot.name}
+                                            <div className="font-semibold flex items-center gap-2">{bot.name}
                                                 <Badge variant={bot.active ? "default" : "secondary"} className="md:hidden">
                                                     {bot.active ? 'Active' : 'Inactive'}
                                                 </Badge>
-                                            </p>
+                                            </div>
                                             <p className="text-xs text-muted-foreground">{getBotDescription(bot)}</p>
                                             {bot.expiryTimestamp && (
                                                 <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
