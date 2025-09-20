@@ -59,7 +59,7 @@ export default function AdvertiserDashboard() {
                 return;
             }
             setProfile(prof);
-            setListings(lists);
+            setListings(lists.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
             setLoading(false);
         });
     }, [user, router, toast]);

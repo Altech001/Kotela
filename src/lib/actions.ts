@@ -508,7 +508,7 @@ export async function getAdvertiserProfile(userId: string): Promise<AdvertiserPr
 
 export async function getAdvertiserListings(userId: string): Promise<P2PListing[]> {
   const listingsRef = collection(db, 'p2pListings');
-  const q = query(listingsRef, where('advertiserId', '==', userId), orderBy('createdAt', 'desc'));
+  const q = query(listingsRef, where('advertiserId', '==', userId));
   const snapshot = await getDocs(q);
 
   return snapshot.docs.map(doc => {
