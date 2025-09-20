@@ -33,6 +33,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
+import { useInventory } from '@/hooks/use-inventory';
 
 type StoreItem = Boost | Powerup;
 
@@ -49,20 +50,15 @@ const iconMap: { [key: string]: React.ElementType } = {
   rocket: Rocket,
 };
 
-const ItemCard = ({ item, onBuyClick, userPowerups, userBoosts }: { item: StoreItem, onBuyClick: (item: StoreItem) => void, userPowerups: UserPowerup[], userBoosts: UserBoost[] }) => {
+const ItemCard = ({ item, onBuyClick, userPowerups }: { item: StoreItem, onBuyClick: (item: StoreItem) => void, userPowerups: UserPowerup[] }) => {
     const Icon = iconMap[item.type] || iconMap[item.id] || Zap;
     const isPowerup = 'maxQuantity' in item;
 
-    let quantityOwned = 0;
     let isSoldOut = false;
 
     if (isPowerup) {
       const ownedItem = userPowerups.find(p => p.powerupId === item.id);
-      quantityOwned = ownedItem?.quantity || 0;
-      isSoldOut = quantityOwned >= (item as Powerup).maxQuantity;
-    } else {
-       const ownedItem = userBoosts.find(b => b.boostId === item.id);
-       quantityOwned = ownedItem?.quantity || 0;
+      isSoldOut = !!ownedItem && (ownedItem?.quantity || 0) >= (item as Powerup).maxQuantity;
     }
     
     return (
@@ -113,7 +109,6 @@ export function Store({ isDialog = false }: { isDialog?: boolean }) {
   }, []);
   
   const userPowerups = user?.powerups || [];
-  const userBoosts = user?.boosts || [];
 
   const handleBuyClick = (item: StoreItem) => {
      if ('maxQuantity' in item) {
@@ -181,7 +176,7 @@ export function Store({ isDialog = false }: { isDialog?: boolean }) {
                       ) : (
                           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                               {boosts.map((item) => (
-                                  <ItemCard key={item.id} item={item} onBuyClick={handleBuyClick} userPowerups={userPowerups} userBoosts={userBoosts} />
+                                  <ItemCard key={item.id} item={item} onBuyClick={handleBuyClick} userPowerups={userPowerups} />
                               ))}
                           </div>
                       )}
@@ -196,7 +191,7 @@ export function Store({ isDialog = false }: { isDialog?: boolean }) {
                         ) : (
                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                               {powerups.map((item) => (
-                                 <ItemCard key={item.id} item={item} onBuyClick={handleBuyClick} userPowerups={userPowerups} userBoosts={userBoosts} />
+                                 <ItemCard key={item.id} item={item} onBuyClick={handleBuyClick} userPowerups={userPowerups} />
                               ))}
                           </div>
                         )}

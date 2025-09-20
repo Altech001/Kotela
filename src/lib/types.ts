@@ -12,8 +12,8 @@ export type User = {
   name: string;
   avatarUrl: string;
   ktc: number;
-  boosts: UserBoost[];
-  powerups: UserPowerup[];
+  boosts: UserBoost[]; // This will be deprecated for inventory items but kept for bots
+  powerups: UserPowerup[]; // This will be deprecated for inventory items but kept for permanent upgrades
   transactions: Transaction[];
   referralCode: string;
   isKycVerified: boolean;
@@ -24,6 +24,17 @@ export type User = {
   referredBy?: string; // ID of the user who referred this user
   otpHash?: string;
   otpExpiry?: string; // ISO string
+};
+
+export type UserInventoryItem = {
+  id: string; // Unique instance ID
+  userId: string;
+  itemId: string; // ID of the Boost or Powerup
+  itemType: 'boost' | 'powerup';
+  name: string;
+  description: string;
+  purchasedAt: string; // ISO string
+  type: Boost['type'] | Powerup['type'];
 };
 
 export type Notification = {

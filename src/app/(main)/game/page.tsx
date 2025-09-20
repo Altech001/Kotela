@@ -26,7 +26,8 @@ import { useGame } from '@/hooks/use-game';
 import { useAuth } from '@/hooks/use-auth';
 import { useState, useEffect } from 'react';
 import { getBoosts, getPowerups } from '@/lib/actions';
-import type { Boost, Powerup } from '@/lib/types';
+import type { Boost, Powerup, UserInventoryItem } from '@/lib/types';
+import { useInventory } from '@/hooks/use-inventory';
 
 export default function Home() {
   const { user } = useAuth();
@@ -34,15 +35,7 @@ export default function Home() {
   const [isBotDialogOpen, setIsBotDialogOpen] = useState(false);
   const [isKycDialogOpen, setIsKycDialogOpen] = useState(false);
   const userLocation = useUserLocation();
-  const [allItems, setAllItems] = useState<(Boost | Powerup)[]>([]);
-
-   useEffect(() => {
-    async function fetchItems() {
-      const [boosts, powerups] = await Promise.all([getBoosts(), getPowerups()]);
-      setAllItems([...boosts, ...powerups]);
-    }
-    fetchItems();
-  }, []);
+  const { inventory } = useInventory();
 
   const botOptions = [
     { name: "Actual grid", icon: BarChart },
@@ -72,11 +65,26 @@ export default function Home() {
       missile: Bomb,
       rocket: Rocket,
   }
-
+  
   const ownedItems = [
-      ...((user?.boosts || []).map(b => ({ ...b, itemType: 'boost' }))),
-      ...((user?.powerups || []).map(p => ({ boostId: p.powerupId, quantity: p.quantity, itemType: 'powerup' })))
-  ];
+      ...(user?.boosts || []), // This will mainly be bots now
+      ...inventory,
+  ].reduce((acc, item) => {
+      const id = 'boostId' in item ? item.boostId : item.itemId;
+      const existing = acc.find(i => i.id === id);
+      if (existing) {
+          existing.quantity += 1;
+      } else {
+          acc.push({
+              id,
+              name: 'name' in item ? item.name : 'Bot',
+              type: 'type' in item ? item.type : 'mining_bot',
+              instanceId: 'instanceId' in item ? item.instanceId : item.id,
+              quantity: 1,
+          });
+      }
+      return acc;
+  }, [] as { id: string; name: string; type: string; instanceId: string; quantity: number }[]);
 
 
   return (
@@ -195,20 +203,14 @@ export default function Home() {
                     <p className="text-xs text-muted-foreground mb-3">Activate boosts during a game.</p>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                        {ownedItems && ownedItems.length > 0 ? (
-                           ownedItems.map(userItem => {
-                               const itemInfo = allItems.find(item => item.id === userItem.boostId);
-                               if (!itemInfo || userItem.quantity <= 0) return null;
-                               const Icon = inventoryIcons[itemInfo.type] || inventoryIcons[itemInfo.id] || Zap;
+                           ownedItems.map(item => {
+                               if (item.quantity <= 0) return null;
+                               const Icon = inventoryIcons[item.type] || inventoryIcons[item.id] || Zap;
                                
-                               // Create a unique key for each item
-                               const uniqueKey = userItem.instanceId 
-                                 ? `${userItem.itemType}-${itemInfo.id}-${userItem.instanceId}`
-                                 : `${userItem.itemType}-${itemInfo.id}`;
-
                                return (
-                                   <div key={uniqueKey} className="flex items-center gap-2 p-2 bg-muted rounded-md text-xs font-bold">
+                                   <div key={item.instanceId} className="flex items-center gap-2 p-2 bg-muted rounded-md text-xs font-bold">
                                        {Icon && <Icon className="w-4 h-4" />}
-                                       <span>{itemInfo.name.split(' ')[0]} x {userItem.quantity}</span>
+                                       <span>{item.name.split(' ')[0]} x {item.quantity}</span>
                                    </div>
                                )
                            })

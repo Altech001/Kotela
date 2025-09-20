@@ -17,9 +17,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { getBoosts, getPowerups } from "@/lib/actions";
-import type { Boost, Powerup } from "@/lib/types";
+import type { Boost, Powerup, UserInventoryItem } from "@/lib/types";
+import { useInventory } from "@/hooks/use-inventory";
 
-type GameItem = (Boost | Powerup) & { ownedQuantity: number; itemType: 'boost' | 'powerup' };
+type GameItem = (Boost | Powerup);
 
 const iconMap: { [key: string]: React.ElementType } = {
   score_multiplier: Zap,
@@ -51,6 +52,7 @@ export function GameEngine() {
     activateExtraTime,
   } = useGame();
 
+  const { getCountOfItem } = useInventory();
   const [allItems, setAllItems] = useState<(Boost | Powerup)[]>([]);
 
   useEffect(() => {
@@ -119,23 +121,8 @@ export function GameEngine() {
     if (allItems.length === 0) return [];
   
     return allItems
-      .filter(item => item.type !== 'mining_bot' && item.type !== 'bot_upgrade' && item.type !== 'permanent_multiplier')
-      .map(item => {
-        let ownedQuantity = 0;
-        let itemType: 'boost' | 'powerup' = 'boost';
-        if (user) {
-          if ('maxQuantity' in item) { // It's a Powerup
-            itemType = 'powerup';
-            const ownedPowerup = user.powerups.find(p => p.powerupId === item.id);
-            ownedQuantity = ownedPowerup?.quantity || 0;
-          } else { // It's a Boost
-            const ownedBoost = user.boosts.find(b => b.boostId === item.id);
-            ownedQuantity = ownedBoost?.quantity || 0;
-          }
-        }
-        return { ...item, ownedQuantity, itemType };
-      });
-  }, [user, allItems]);
+      .filter(item => item.type !== 'mining_bot' && item.type !== 'bot_upgrade' && item.type !== 'permanent_multiplier');
+  }, [allItems]);
 
 
   const extraTimeItems = allGameItems.filter(item => item.type === 'extra_time');
@@ -205,9 +192,10 @@ export function GameEngine() {
           <>
             {extraTimeItems.map(item => {
                 const Icon = iconMap[item.id] || Clock;
+                const ownedQuantity = getCountOfItem(item.id);
                 return (
-                  <Button key={`${item.itemType}-${item.id}`} onClick={() => activateExtraTime(item.id)} variant="outline" size="sm" disabled={item.ownedQuantity <= 0}>
-                    <Icon /> +{item.value}s ({item.ownedQuantity})
+                  <Button key={item.id} onClick={() => activateExtraTime(item.id)} variant="outline" size="sm" disabled={ownedQuantity <= 0}>
+                    <Icon /> +{item.value}s ({ownedQuantity})
                   </Button>
                 )
             })}
@@ -217,10 +205,11 @@ export function GameEngine() {
           <>
             {inGameItems.map(item => {
               const Icon = iconMap[item.id] || Zap;
-              const isDisabled = (!!activeBoostInfo && item.type !== 'scoreBomb') || item.ownedQuantity <= 0;
+              const ownedQuantity = getCountOfItem(item.id);
+              const isDisabled = (!!activeBoostInfo && item.type !== 'scoreBomb') || ownedQuantity <= 0;
               return (
-                  <Button key={`${item.itemType}-${item.id}`} onClick={() => activateBoost(item.id)} disabled={isDisabled} variant="outline" size="sm">
-                    <Icon />({item.ownedQuantity})
+                  <Button key={item.id} onClick={() => activateBoost(item.id)} disabled={isDisabled} variant="outline" size="sm">
+                    <Icon />({ownedQuantity})
                   </Button>
               )
             })}

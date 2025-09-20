@@ -3,11 +3,11 @@
 
 import { createContext, useState, useEffect, useCallback, ReactNode, useMemo } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import type { Boost as BoostType, Powerup as PowerupType, GameSession, UserPowerup, UserBoost } from '@/lib/types';
+import type { Boost as BoostType, Powerup as PowerupType, GameSession, UserPowerup, UserBoost, UserInventoryItem } from '@/lib/types';
 import { getBoost, getPowerup } from '@/lib/actions';
 import { analyzePrivacyRisks } from '@/ai/flows/privacy-risk-analysis';
 import { db } from '@/lib/firebase';
-import { doc, setDoc, getDoc, updateDoc, deleteDoc, onSnapshot, runTransaction, arrayUnion, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, deleteDoc, onSnapshot, runTransaction, arrayUnion, serverTimestamp, collection, addDoc, query, where, getDocs, limit, writeBatch } from 'firebase/firestore';
 
 
 export type GameStatus = "idle" | "playing" | "ended";
@@ -253,6 +253,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
             if (currentUser.ktc < item.cost) throw "Insufficient KTC.";
 
             if (isPowerup) {
+                // Permanent powerups are stored on the user document
                 const powerupItem = item as PowerupType;
                 const newPowerups: UserPowerup[] = [...(currentUser.powerups || [])];
                 const existingPowerupIndex = newPowerups.findIndex(p => p.powerupId === powerupItem.id);
@@ -272,54 +273,48 @@ export function GameProvider({ children }: { children: ReactNode }) {
                     });
                 }
                 
-                transaction.update(userRef, {
-                    ktc: currentUser.ktc - item.cost,
-                    powerups: newPowerups,
-                    transactions: arrayUnion({
-                      id: `tx-purchase-${item.id}-${Date.now()}`,
-                      type: 'purchase',
-                      amount: item.cost,
-                      timestamp: new Date().toISOString(),
-                      description: `Purchased ${item.name}`,
-                    })
-                });
-
-            } else { // It's a boost
+                transaction.update(userRef, { powerups: newPowerups });
+            
+            } else if (isBot) {
+                // Bots are a special boost type stored on the user doc
                 const newBoosts: UserBoost[] = [...(currentUser.boosts || [])];
-                
-                if (isBot) {
-                    const newBotInstance: UserBoost = {
-                        instanceId: `bot-${user.id.slice(0,4)}-${Date.now()}`,
-                        boostId: item.id,
-                        type: 'mining_bot',
-                        quantity: 1, // Each bot is an instance
-                        active: true,
-                    };
-                    newBoosts.push(newBotInstance);
-                } else {
-                    const existingBoostIndex = newBoosts.findIndex(b => b.boostId === item.id && !b.instanceId);
-                    if (existingBoostIndex > -1) {
-                        newBoosts[existingBoostIndex].quantity += 1;
-                    } else {
-                        newBoosts.push({ boostId: item.id, quantity: 1, active: true, type: item.type });
-                    }
-                }
-                
-                transaction.update(userRef, {
-                    ktc: currentUser.ktc - item.cost,
-                    boosts: newBoosts,
-                    transactions: arrayUnion({
-                      id: `tx-purchase-${item.id}-${Date.now()}`,
-                      type: 'purchase',
-                      amount: item.cost,
-                      timestamp: new Date().toISOString(),
-                      description: `Purchased ${item.name}`,
-                    })
-                });
+                const newBotInstance: UserBoost = {
+                    instanceId: `bot-${user.id.slice(0,4)}-${Date.now()}`,
+                    boostId: item.id,
+                    type: 'mining_bot',
+                    quantity: 1, // Each bot is an instance
+                    active: true,
+                };
+                newBoosts.push(newBotInstance);
+                transaction.update(userRef, { boosts: newBoosts });
+            } else {
+                // Consumable boosts are added to the userInventory collection
+                const inventoryRef = collection(db, 'userInventory');
+                const newItem: Omit<UserInventoryItem, 'id'> = {
+                    userId: user.id,
+                    itemId: item.id,
+                    itemType: 'boost',
+                    name: item.name,
+                    description: item.description,
+                    purchasedAt: new Date().toISOString(),
+                    type: item.type,
+                };
+                transaction.set(doc(inventoryRef), newItem);
             }
+            
+            // Deduct cost and add transaction record for all item types
+            transaction.update(userRef, {
+                ktc: currentUser.ktc - item.cost,
+                transactions: arrayUnion({
+                  id: `tx-purchase-${item.id}-${Date.now()}`,
+                  type: 'purchase',
+                  amount: item.cost,
+                  timestamp: new Date().toISOString(),
+                  description: `Purchased ${item.name}`,
+                })
+            });
         });
         
-        // AuthProvider's onSnapshot will handle the user state update, triggering re-renders
         return true;
     } catch (error) {
         console.error("Purchase failed:", error);
@@ -329,39 +324,19 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
  const useItem = async (itemId: string): Promise<boolean> => {
     if (!user) return false;
-    const userRef = doc(db, 'users', user.id);
+
+    const inventoryRef = collection(db, 'userInventory');
+    const q = query(inventoryRef, where('userId', '==', user.id), where('itemId', '==', itemId), limit(1));
+    
     try {
-        await runTransaction(db, async (transaction) => {
-            const userDoc = await transaction.get(userRef);
-            if (!userDoc.exists()) throw new Error("User not found.");
-            
-            const currentUser = userDoc.data() as any;
-            
-            let itemFound = false;
-            // Try to find and decrement in boosts
-            const newBoosts: UserBoost[] = [...currentUser.boosts];
-            const boostIndex = newBoosts.findIndex((b: UserBoost) => b.boostId === itemId && !b.instanceId && b.quantity > 0);
-            if (boostIndex > -1) {
-                newBoosts[boostIndex].quantity -= 1;
-                transaction.update(userRef, { boosts: newBoosts });
-                itemFound = true;
-            }
-
-            // If not found in boosts, try powerups
-            if (!itemFound) {
-                const newPowerups: UserPowerup[] = [...currentUser.powerups];
-                const powerupIndex = newPowerups.findIndex((p: UserPowerup) => p.powerupId === itemId && (p.quantity || 0) > 0);
-                if (powerupIndex > -1) {
-                    newPowerups[powerupIndex].quantity = (newPowerups[powerupIndex].quantity || 1) - 1;
-                    transaction.update(userRef, { powerups: newPowerups });
-                    itemFound = true;
-                }
-            }
-
-            if (!itemFound) {
-                 throw new Error("Item not available or out of stock.");
-            }
-        });
+        const snapshot = await getDocs(q);
+        if (snapshot.empty) {
+            throw new Error("Item not available or out of stock.");
+        }
+        
+        const itemDocToDelete = snapshot.docs[0];
+        await deleteDoc(itemDocToDelete.ref);
+        
         return true;
     } catch (error) {
         console.error("Failed to use item:", error);
