@@ -54,6 +54,11 @@ export default function P2PApplyPage() {
             paymentMethods: [],
             regions: [],
             price: 1.00,
+            asset: 'KTC',
+            fiatCurrency: 'USD',
+            availableAmount: 0,
+            minLimit: 0,
+            maxLimit: 0,
         }
     });
 
