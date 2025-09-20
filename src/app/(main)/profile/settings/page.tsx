@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -72,6 +73,14 @@ const profileFormSchema = z.object({
 
 type ProfileFormValues = z.infer<typeof profileFormSchema>;
 
+const phoneVerificationSchema = z.object({
+  phoneNumber: z.string().min(10, { message: "Please enter a valid phone number." }),
+  name: z.string().min(2, { message: "Account name is required." }),
+  otp: z.string().length(6, { message: "OTP must be 6 digits." }),
+});
+type PhoneVerificationFormValues = z.infer<typeof phoneVerificationSchema>;
+
+
 const mobileMoneySchema = z.object({
     provider: z.string().min(2, { message: "Provider name is required."}),
     number: z.string().min(10, { message: "Please enter a valid phone number."}),
@@ -84,7 +93,6 @@ export default function SettingsPage() {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPhoneVerifyOpen, setIsPhoneVerifyOpen] = useState(false);
-  const [otp, setOtp] = useState('');
   const [mobileAccounts, setMobileAccounts] = useState<MobileMoneyAccount[]>([]);
   const [dailyWithdrawals, setDailyWithdrawals] = useState<Transaction[]>([]);
   const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
@@ -95,6 +103,15 @@ export default function SettingsPage() {
       name: user?.name || '',
       email: user?.email || '',
     },
+  });
+
+  const phoneVerificationForm = useForm<PhoneVerificationFormValues>({
+    resolver: zodResolver(phoneVerificationSchema),
+    defaultValues: {
+        phoneNumber: '',
+        name: '',
+        otp: '',
+    }
   });
   
   const mobileMoneyForm = useForm<MobileMoneyFormValues>({
@@ -143,16 +160,13 @@ export default function SettingsPage() {
     setIsSubmitting(false);
   };
   
-  const handleVerifyPhone = async () => {
-      if (otp.length !== 6) {
-          toast({ variant: 'destructive', title: 'Invalid OTP', description: 'Please enter a 6-digit OTP.'});
-          return;
-      }
+  const onPhoneVerifySubmit = async (data: PhoneVerificationFormValues) => {
       setIsSubmitting(true);
       try {
-          await verifyPhoneNumber(otp);
+          await verifyPhoneNumber(data.phoneNumber, data.name, data.otp);
           toast({ title: 'Phone Verified', description: 'Your phone number has been successfully verified.'});
           setIsPhoneVerifyOpen(false);
+          phoneVerificationForm.reset();
       } catch (error: any) {
           toast({ variant: 'destructive', title: 'Verification Failed', description: error.message });
       }
@@ -282,7 +296,7 @@ export default function SettingsPage() {
                             <Phone className="text-muted-foreground" />
                             <div>
                                 <p className="font-semibold">Phone Number Verification</p>
-                                <p className="text-sm text-muted-foreground">{user.isPhoneVerified ? 'Your number is verified.' : 'Secure your account by verifying your phone number.'}</p>
+                                <p className="text-sm text-muted-foreground">{user.isPhoneVerified ? `Verified: ${user.phoneNumber}` : 'Secure your account by verifying your phone number.'}</p>
                             </div>
                         </div>
                         <Button variant="secondary" disabled={user.isPhoneVerified}>
@@ -293,25 +307,60 @@ export default function SettingsPage() {
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>Verify Your Phone Number</DialogTitle>
-                        <DialogDescription>A 6-digit code has been sent to your registered phone number. Enter it below to verify.</DialogDescription>
+                        <DialogDescription>Enter your phone details and the 6-digit code sent to your device.</DialogDescription>
                     </DialogHeader>
-                    <div className="py-4">
-                        <Input 
-                            type="tel"
-                            maxLength={6}
-                            placeholder="_ _ _ _ _ _"
-                            className="text-center text-2xl tracking-[1.5em]"
-                            value={otp}
-                            onChange={(e) => setOtp(e.target.value)}
-                        />
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsPhoneVerifyOpen(false)}>Cancel</Button>
-                        <Button onClick={handleVerifyPhone} disabled={isSubmitting}>
-                            {isSubmitting && <Loader2 className="mr-2 animate-spin" />}
-                            Verify
-                        </Button>
-                    </DialogFooter>
+                    <Form {...phoneVerificationForm}>
+                        <form onSubmit={phoneVerificationForm.handleSubmit(onPhoneVerifySubmit)} className="space-y-4 py-4">
+                             <FormField
+                                control={phoneVerificationForm.control}
+                                name="phoneNumber"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Phone Number</FormLabel>
+                                    <FormControl><Input type="tel" placeholder="e.g. 0771234567" {...field} /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={phoneVerificationForm.control}
+                                name="name"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Registered Name</FormLabel>
+                                    <FormControl><Input placeholder="e.g. John Doe" {...field} /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                             <FormField
+                                control={phoneVerificationForm.control}
+                                name="otp"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>One-Time Password (OTP)</FormLabel>
+                                    <FormControl>
+                                        <Input 
+                                            type="tel"
+                                            maxLength={6}
+                                            placeholder="_ _ _ _ _ _"
+                                            className="text-center text-2xl tracking-[1.5em]"
+                                            {...field}
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                            <DialogFooter>
+                                <Button type="button" variant="ghost" onClick={() => setIsPhoneVerifyOpen(false)}>Cancel</Button>
+                                <Button type="submit" disabled={isSubmitting}>
+                                    {isSubmitting && <Loader2 className="mr-2 animate-spin" />}
+                                    Verify Phone
+                                </Button>
+                            </DialogFooter>
+                        </form>
+                    </Form>
                 </DialogContent>
             </Dialog>
         </CardContent>

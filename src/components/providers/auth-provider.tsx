@@ -211,12 +211,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [user]);
 
-  const verifyPhoneNumber = useCallback(async (otp: string) => {
+  const verifyPhoneNumber = useCallback(async (phoneNumber: string, name: string, otp: string) => {
     if (user) {
       // In a real app, you would verify the OTP with a backend service.
       // Here, we'll just simulate a successful verification.
       if (otp === "123456") { // Example OTP
-        await updateUser({ isPhoneVerified: true });
+        await updateUser({ 
+          isPhoneVerified: true,
+          phoneNumber: phoneNumber,
+          phoneHolderName: name,
+        });
       } else {
         throw new Error("Invalid OTP. Please try again.");
       }

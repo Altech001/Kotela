@@ -19,6 +19,8 @@ export type User = {
   referralCode: string;
   isKycVerified: boolean;
   isPhoneVerified: boolean;
+  phoneNumber?: string;
+  phoneHolderName?: string;
   wallets: Wallet[];
   referredBy?: string; // ID of the user who referred this user
 };
@@ -62,6 +64,7 @@ export type UserBoost = {
   quantity: number;
   instanceId?: string; // For individual bot instances
   active?: boolean;    // For bot status
+  type?: string;
 };
 
 export type UserPowerup = {
