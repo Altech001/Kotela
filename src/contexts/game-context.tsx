@@ -4,7 +4,8 @@
 import { createContext, useState, useEffect, useCallback, ReactNode, useMemo } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import type { Boost as BoostType, Powerup as PowerupType, GameSession, UserPowerup, UserBoost } from '@/lib/types';
-import { runPrivacyAnalysis, getBoost, getPowerup } from '@/lib/actions';
+import { getBoost, getPowerup } from '@/lib/actions';
+import { analyzePrivacyRisks as runPrivacyAnalysis } from '@/ai/flows/privacy-risk-analysis';
 import { db } from '@/lib/firebase';
 import { doc, setDoc, getDoc, updateDoc, deleteDoc, onSnapshot, runTransaction, arrayUnion, serverTimestamp } from 'firebase/firestore';
 
@@ -196,7 +197,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
     const gameData = JSON.stringify({ finalScore: finalScore, endTime: new Date().toISOString() });
     try {
-      const result = await runPrivacyAnalysis(gameData);
+      const result = await runPrivacyAnalysis({ gameplayData: gameData });
       if (result.analysisResult.toLowerCase().includes("risk")) {
         setPrivacyWarning(result.analysisResult);
         setIsModalOpen(true);
@@ -440,3 +441,5 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
 }
+
+    
