@@ -74,9 +74,10 @@ export default function Home() {
   }
 
   const ownedItems = [
-      ...(user?.boosts || []),
-      ...(user?.powerups.map(p => ({ boostId: p.powerupId, quantity: p.quantity })) || [])
+      ...((user?.boosts || []).map(b => ({ ...b, itemType: 'boost' }))),
+      ...((user?.powerups || []).map(p => ({ boostId: p.powerupId, quantity: p.quantity, itemType: 'powerup' })))
   ];
+
 
   return (
     <div className="flex flex-col min-h-[calc(100vh-4rem)] bg-background">
@@ -198,8 +199,10 @@ export default function Home() {
                                const itemInfo = allItems.find(item => item.id === userItem.boostId);
                                if (!itemInfo || userItem.quantity <= 0) return null;
                                const Icon = inventoryIcons[itemInfo.type] || inventoryIcons[itemInfo.id] || Zap;
+                               // Create a unique key by combining type and id
+                               const uniqueKey = `${userItem.itemType}-${itemInfo.id}`;
                                return (
-                                   <div key={itemInfo.id} className="flex items-center gap-2 p-2 bg-muted rounded-md text-xs font-bold">
+                                   <div key={uniqueKey} className="flex items-center gap-2 p-2 bg-muted rounded-md text-xs font-bold">
                                        {Icon && <Icon className="w-4 h-4" />}
                                        <span>{itemInfo.name.split(' ')[0]} x {userItem.quantity}</span>
                                    </div>
