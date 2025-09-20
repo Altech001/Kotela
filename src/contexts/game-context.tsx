@@ -107,7 +107,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         
         // Apply bot upgrade multiplier
         const botUpgradePowerup = user?.powerups.find(p => p.powerupId === 'bot-upgrade-1');
-        if (botUpgradePowerup) currentRate *= botUpgradePowerup.value;
+        if (botUpgradePowerup) currentRate *= (botUpgradePowerup.value || 1);
 
 
         // Check for active boost/power-up and apply its effect
