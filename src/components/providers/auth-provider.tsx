@@ -12,7 +12,7 @@ import {
   signOut,
   User as FirebaseUser,
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs, writeBatch, arrayUnion, runTransaction, or, onSnapshot } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs, writeBatch, arrayUnion, runTransaction, onSnapshot } from 'firebase/firestore';
 import { storeItems as localStoreItems } from '@/lib/data';
 import { powerupItems as localPowerupItems } from '@/lib/powerups-data';
 import { addNotification } from '@/lib/actions';
@@ -39,6 +39,7 @@ const createUserObject = (firebaseUser: FirebaseUser, extraData: Partial<User> =
     }
   ],
   isKycVerified: false,
+  isPhoneVerified: false,
   ...extraData,
 });
 
@@ -210,6 +211,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [user]);
 
+  const verifyPhoneNumber = useCallback(async (otp: string) => {
+    if (user) {
+      // In a real app, you would verify the OTP with a backend service.
+      // Here, we'll just simulate a successful verification.
+      if (otp === "123456") { // Example OTP
+        await updateUser({ isPhoneVerified: true });
+      } else {
+        throw new Error("Invalid OTP. Please try again.");
+      }
+    }
+  }, [user, updateUser]);
+
   const addTransaction = useCallback(async (transaction: Omit<Transaction, 'id' | 'timestamp'>) => {
     if (user) {
       const newTransaction: Transaction = {
@@ -365,9 +378,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
 
-  const value = { user, loading, login, signup, logout, updateUser, addTransaction, transferKtc, addWalletAddress, deleteWalletAddress, toggleWalletStatus, toggleBotStatus, deleteBot };
+  const value = { user, loading, login, signup, logout, updateUser, verifyPhoneNumber, addTransaction, transferKtc, addWalletAddress, deleteWalletAddress, toggleWalletStatus, toggleBotStatus, deleteBot };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
-
-    

@@ -18,6 +18,7 @@ export type User = {
   transactions: Transaction[];
   referralCode: string;
   isKycVerified: boolean;
+  isPhoneVerified: boolean;
   wallets: Wallet[];
   referredBy?: string; // ID of the user who referred this user
 };
@@ -121,3 +122,12 @@ export interface GameSession {
     endTime: number; // timestamp
   } | null;
 }
+
+export type MobileMoneyAccount = {
+    id: string;
+    userId: string;
+    provider: string; // e.g., 'MTN', 'Airtel'
+    number: string;
+    name: string;
+    createdAt: string; // ISO string
+};

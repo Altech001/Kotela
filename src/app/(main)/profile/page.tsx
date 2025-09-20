@@ -428,7 +428,7 @@ export default function ProfilePage() {
                     </div>
                     <ThemeToggle />
                 </div>
-                <div className="p-4 flex items-center justify-between hover:bg-muted/50 cursor-pointer">
+                 <Link href="/profile/settings" className="p-4 flex items-center justify-between hover:bg-muted/50">
                     <div className="flex items-center gap-3">
                         <Settings className="h-5 w-5 text-muted-foreground" />
                          <div>
@@ -437,7 +437,7 @@ export default function ProfilePage() {
                         </div>
                     </div>
                     <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                </div>
+                </Link>
                 <div onClick={logout} className="p-4 flex items-center justify-between hover:bg-muted/50 cursor-pointer">
                     <div className="flex items-center gap-3">
                         <LogOut className="h-5 w-5 text-destructive" />

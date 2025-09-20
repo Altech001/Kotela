@@ -10,6 +10,7 @@ type AuthContextType = {
   signup: (email: string, password: string, extraData?: Partial<User>) => Promise<void>;
   logout: () => void;
   updateUser: (data: Partial<User>) => void;
+  verifyPhoneNumber: (otp: string) => Promise<void>;
   addTransaction: (transaction: Omit<Transaction, 'id' | 'timestamp'>) => Promise<void>;
   transferKtc: (recipientIdentifier: string, amount: number) => Promise<void>;
   addWalletAddress: (network: string) => Promise<void>;

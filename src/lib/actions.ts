@@ -1,45 +1,11 @@
 
 'use server';
 
-import { analyzePrivacyRisks } from '@/ai/flows/privacy-risk-analysis';
-import { backgroundMiningSummary } from '@/ai/flows/background-mining-summary';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, orderBy, query, addDoc, serverTimestamp, where, doc, getDoc, writeBatch } from 'firebase/firestore';
-import type { User, Comment, Boost, Powerup, Notification } from '@/lib/types';
+import { collection, getDocs, orderBy, query, addDoc, serverTimestamp, where, doc, getDoc, writeBatch, deleteDoc } from 'firebase/firestore';
+import type { User, Comment, Boost, Powerup, Notification, MobileMoneyAccount, Transaction } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
-
-export async function runPrivacyAnalysis(gameplayData: string) {
-  try {
-    const result = await analyzePrivacyRisks({ gameplayData });
-    return result;
-  } catch (error) {
-    console.error('Error in privacy analysis:', error);
-    return {
-      analysisResult: 'Could not analyze privacy risks at this time.',
-      recommendations: 'Please try again later.',
-    };
-  }
-}
-
-export async function getBackgroundMiningSummary(
-  startTime: string,
-  endTime: string,
-  ktcMined: number
-) {
-  try {
-    const result = await backgroundMiningSummary({
-      startTime,
-      endTime,
-      ktcMined,
-    });
-    return result;
-  } catch (error) {
-    console.error('Error in background mining summary:', error);
-    return {
-      summary: `You mined ${ktcMined.toFixed(4)} KTC while you were away.`,
-    };
-  }
-}
+import { startOfDay, endOfDay } from 'date-fns';
 
 
 export async function getLeaderboard() {
@@ -223,4 +189,41 @@ export async function getReferredUsers(referrerId: string): Promise<User[]> {
         console.error('Error fetching referred users:', error);
         return [];
     }
+}
+
+export async function getMobileMoneyAccounts(userId: string): Promise<MobileMoneyAccount[]> {
+  const accountsRef = collection(db, 'mobileMoneyAccounts');
+  const q = query(accountsRef, where('userId', '==', userId), orderBy('createdAt', 'desc'));
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MobileMoneyAccount));
+}
+
+export async function addMobileMoneyAccount(accountData: Omit<MobileMoneyAccount, 'id' | 'createdAt'>) {
+  const newAccount = {
+    ...accountData,
+    createdAt: serverTimestamp(),
+  };
+  const docRef = await addDoc(collection(db, 'mobileMoneyAccounts'), newAccount);
+  return { id: docRef.id, ...accountData, createdAt: new Date().toISOString() };
+}
+
+export async function deleteMobileMoneyAccount(accountId: string) {
+  const accountRef = doc(db, 'mobileMoneyAccounts', accountId);
+  await deleteDoc(accountRef);
+}
+
+export async function getDailyWithdrawals(userId: string): Promise<Transaction[]> {
+  const userRef = doc(db, 'users', userId);
+  const userDoc = await getDoc(userRef);
+  if (!userDoc.exists()) return [];
+
+  const allTransactions = (userDoc.data().transactions || []) as Transaction[];
+  const todayStart = startOfDay(new Date());
+
+  return allTransactions
+    .filter(tx => 
+        tx.type === 'withdrawal' && 
+        new Date(tx.timestamp) >= todayStart
+    )
+    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 }
