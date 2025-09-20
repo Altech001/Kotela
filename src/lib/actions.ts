@@ -195,12 +195,17 @@ export async function getMobileMoneyAccounts(userId: string): Promise<MobileMone
   const accountsRef = collection(db, 'mobileMoneyAccounts');
   const q = query(accountsRef, where('userId', '==', userId));
   const snapshot = await getDocs(q);
-  const accounts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MobileMoneyAccount));
+
+  const accounts = snapshot.docs.map(doc => {
+      const data = doc.data();
+      const createdAt = data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString();
+      return { id: doc.id, ...data, createdAt } as MobileMoneyAccount;
+  });
   
   // Sort manually after fetching
   return accounts.sort((a, b) => {
-    const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-    const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    const dateA = new Date(a.createdAt).getTime();
+    const dateB = new Date(b.createdAt).getTime();
     return dateB - dateA;
   });
 }
