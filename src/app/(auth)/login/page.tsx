@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -7,12 +8,14 @@ import { useAuth } from '@/hooks/use-auth';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, FormEvent, useEffect } from 'react';
-import { Loader2, Chrome, Wallet } from 'lucide-react';
+import { Loader2, Chrome, Wallet, Eye, EyeOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Separator } from '@/components/ui/separator';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const { login, user, loading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
@@ -36,15 +39,45 @@ export default function LoginPage() {
     }
   };
 
+  const handleWalletLogin = () => {
+    toast({
+      title: 'Coming Soon!',
+      description: 'Sui Wallet login is not yet implemented.',
+    });
+  }
+
   return (
     <div className="w-full max-w-sm">
       <div className="grid gap-6">
-        <div className="grid gap-2 text-left">
-          <h1 className="text-3xl font-bold">Login</h1>
+        <div className="grid gap-2 text-center">
+          <h1 className="text-3xl font-bold">Welcome Back</h1>
           <p className="text-muted-foreground">
-            Enter your email below to login to your account
+            Sign in to continue your mining journey.
           </p>
         </div>
+
+        <div className="grid gap-4">
+            <Button variant="outline" onClick={handleWalletLogin}>
+                <Wallet className="mr-2 h-4 w-4" />
+                Login with Sui Wallet
+            </Button>
+            <Button variant="outline" disabled>
+                <Chrome className="mr-2 h-4 w-4" />
+                Login with Google
+            </Button>
+        </div>
+
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <span className="w-full border-t" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-background px-2 text-muted-foreground">
+              Or with your email
+            </span>
+          </div>
+        </div>
+
         <form onSubmit={handleSubmit} className="grid gap-4">
           <div className="grid gap-2">
             <Label htmlFor="email">Email</Label>
@@ -67,39 +100,31 @@ export default function LoginPage() {
                 Forgot your password?
               </Link>
             </div>
-            <Input
-              id="password"
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
+            <div className="relative">
+              <Input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute inset-y-0 right-0 h-full px-3"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? <EyeOff /> : <Eye />}
+              </Button>
+            </div>
           </div>
           <Button type="submit" className="w-full" disabled={loading}>
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Login
+            Login with Email
           </Button>
         </form>
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-background px-2 text-muted-foreground">
-              Or continue with
-            </span>
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <Button variant="outline" disabled>
-            <Wallet className="mr-2 h-4 w-4" />
-            Sui Wallet
-          </Button>
-          <Button variant="outline" disabled>
-            <Chrome className="mr-2 h-4 w-4" />
-            Google
-          </Button>
-        </div>
+        
         <div className="mt-4 text-center text-sm">
           Don&apos;t have an account?{" "}
           <Link href="/signup" className="underline">
