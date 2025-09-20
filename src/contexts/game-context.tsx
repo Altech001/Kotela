@@ -5,7 +5,7 @@ import { createContext, useState, useEffect, useCallback, ReactNode, useMemo } f
 import { useAuth } from '@/hooks/use-auth';
 import type { Boost as BoostType, Powerup as PowerupType, GameSession, UserPowerup, UserBoost } from '@/lib/types';
 import { getBoost, getPowerup } from '@/lib/actions';
-import { analyzePrivacyRisks as runPrivacyAnalysis } from '@/ai/flows/privacy-risk-analysis';
+import { analyzePrivacyRisks } from '@/ai/flows/privacy-risk-analysis';
 import { db } from '@/lib/firebase';
 import { doc, setDoc, getDoc, updateDoc, deleteDoc, onSnapshot, runTransaction, arrayUnion, serverTimestamp } from 'firebase/firestore';
 
@@ -197,7 +197,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
     const gameData = JSON.stringify({ finalScore: finalScore, endTime: new Date().toISOString() });
     try {
-      const result = await runPrivacyAnalysis({ gameplayData: gameData });
+      const result = await analyzePrivacyRisks({ gameplayData: gameData });
       if (result.analysisResult.toLowerCase().includes("risk")) {
         setPrivacyWarning(result.analysisResult);
         setIsModalOpen(true);
@@ -278,6 +278,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
                     const newBotInstance: UserBoost = {
                         instanceId: `bot-${user.id.slice(0,4)}-${Date.now()}`,
                         boostId: item.id,
+                        type: 'mining_bot',
                         quantity: 1, // Each bot is an instance
                         active: true,
                     };
@@ -441,5 +442,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
 }
+
+    
 
     

@@ -5,6 +5,8 @@ import { useEffect, useRef } from 'react';
 import { useAuth } from './use-auth';
 import { addNotification } from '@/lib/actions';
 import { backgroundMiningSummary } from '@/ai/flows/background-mining-summary';
+import { db } from '@/lib/firebase';
+import { doc, runTransaction, arrayUnion } from 'firebase/firestore';
 
 
 const KTC_PER_HOUR = 1;
@@ -38,25 +40,30 @@ export function useBackgroundMining() {
           const ktcMined = hoursElapsed * totalRate;
 
           if (ktcMined > 0) {
-            await runTransaction(db, async (transaction) => {
-              const userRef = doc(db, 'users', user.id);
-              const userDoc = await transaction.get(userRef);
-              if (!userDoc.exists()) return;
+            try {
+              await runTransaction(db, async (transaction) => {
+                const userRef = doc(db, 'users', user.id);
+                const userDoc = await transaction.get(userRef);
+                if (!userDoc.exists()) return;
 
-              const currentKtc = userDoc.data().ktc;
-              const newKtc = currentKtc + ktcMined;
-              
-              transaction.update(userRef, { ktc: newKtc });
+                const currentKtc = userDoc.data().ktc;
+                const newKtc = currentKtc + ktcMined;
+                
+                transaction.update(userRef, { ktc: newKtc });
 
-              const newTransaction = {
-                type: 'deposit',
-                amount: ktcMined,
-                description: `Background mining from ${activeMiningBots.length} bot(s)`,
-                timestamp: new Date().toISOString(),
-                id: `tx-${Date.now()}`
-              };
-              transaction.update(userRef, { transactions: arrayUnion(newTransaction) });
-            });
+                const newTransaction = {
+                  type: 'deposit',
+                  amount: ktcMined,
+                  description: `Background mining from ${activeMiningBots.length} bot(s)`,
+                  timestamp: new Date().toISOString(),
+                  id: `tx-${Date.now()}`
+                };
+                transaction.update(userRef, { transactions: arrayUnion(newTransaction) });
+              });
+            } catch (e) {
+              console.error("Failed to update KTC from background mining", e)
+            }
+
 
             try {
               const summaryResult = await backgroundMiningSummary({
@@ -80,16 +87,6 @@ export function useBackgroundMining() {
         }
       }
       processedRef.current = true; 
-    };
-
-    // Need to import db and other firestore functions to make this work
-    // For now, let's stick to the logic and assume they are available.
-    // This is a placeholder for the actual implementation.
-    const { db, doc, runTransaction, arrayUnion } = {
-        db: {},
-        doc: (db: any, ...path: any) => {},
-        runTransaction: async (db: any, cb: any) => {},
-        arrayUnion: (...args: any) => {}
     };
 
     if (user) {
@@ -123,5 +120,7 @@ export function useBackgroundMining() {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [user, updateUser, addTransaction]);
+  }, [user]);
 }
+
+    
