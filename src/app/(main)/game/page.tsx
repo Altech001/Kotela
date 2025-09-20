@@ -31,7 +31,7 @@ import { useInventory } from '@/hooks/use-inventory';
 
 export default function Home() {
   const { user } = useAuth();
-  const { isStoreOpen, setIsStoreOpen } = useGame();
+  const { isStoreOpen, setIsStoreOpen, isBalanceVisible } = useGame();
   const [isBotDialogOpen, setIsBotDialogOpen] = useState(false);
   const [isKycDialogOpen, setIsKycDialogOpen] = useState(false);
   const userLocation = useUserLocation();
@@ -141,7 +141,7 @@ export default function Home() {
              <div className="flex items-center gap-4">
                 <div className="flex items-center justify-start gap-2 text-lg font-bold text-primary px-2">
                     <Coins className="w-5 h-5 text-yellow-500"/>
-                    <span className='text-lg'>{user?.ktc.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                    <span className='text-lg'>{isBalanceVisible ? (user?.ktc.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})) : '********'}</span>
                 </div>
                  <Dialog open={isBotDialogOpen} onOpenChange={setIsBotDialogOpen}>
                     <DialogTrigger asChild>

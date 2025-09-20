@@ -5,6 +5,7 @@ import { KotelaIcon } from '../icons';
 import { NotificationBell } from './notification-bell';
 import { NotificationTicker } from './notification-ticker';
 import { ThemeToggle } from './theme-toggle';
+import { BalanceToggle } from './balance-toggle';
 
 export function Header() {
   return (
@@ -17,6 +18,7 @@ export function Header() {
         <DesktopNav />
         <div className="flex items-center gap-2">
           <ThemeToggle />
+          <BalanceToggle />
           <NotificationBell />
           <UserNav />
         </div>

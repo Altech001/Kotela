@@ -24,6 +24,7 @@ export interface GameContextType {
   isStoreOpen: boolean;
   isModalOpen: boolean;
   privacyWarning: string | null;
+  isBalanceVisible: boolean;
   
   handleTap: () => void;
   resetGame: () => Promise<void>;
@@ -33,6 +34,7 @@ export interface GameContextType {
 
   setIsStoreOpen: (isOpen: boolean) => void;
   setIsModalOpen: (isOpen: boolean) => void;
+  toggleBalanceVisibility: () => void;
 }
 
 export const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -46,6 +48,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [privacyWarning, setPrivacyWarning] = useState<string | null>(null);
   const [baseGameDuration, setBaseGameDuration] = useState(DEFAULT_GAME_DURATION);
+  const [isBalanceVisible, setIsBalanceVisible] = useState(false);
+
+  const toggleBalanceVisibility = () => {
+    setIsBalanceVisible(prev => !prev);
+  };
   
   // Fetch game config from Firestore
   useEffect(() => {
@@ -451,6 +458,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     isStoreOpen,
     isModalOpen,
     privacyWarning,
+    isBalanceVisible,
     handleTap,
     resetGame,
     buyItem,
@@ -458,6 +466,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     activateExtraTime,
     setIsStoreOpen,
     setIsModalOpen,
+    toggleBalanceVisibility,
   };
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;

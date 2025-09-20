@@ -27,6 +27,7 @@ import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { User as UserType, Wallet } from '@/lib/types';
 import { getReferredUsers } from '@/lib/actions';
+import { useGame } from '@/hooks/use-game';
 
 
 const networks = [
@@ -142,7 +143,7 @@ const ReferralDialogContent = ({ user }: { user: UserType | null }) => {
 
 export default function ProfilePage() {
   const { user, updateUser, addWalletAddress, deleteWalletAddress, toggleWalletStatus, logout } = useAuth();
-  const [isBalanceVisible, setIsBalanceVisible] = useState(false);
+  const { isBalanceVisible } = useGame();
   const [isCreateWalletOpen, setIsCreateWalletOpen] = useState(false);
   const [isDeleteWalletOpen, setIsDeleteWalletOpen] = useState(false);
   const [walletToDelete, setWalletToDelete] = useState<string | null>(null);
@@ -200,10 +201,6 @@ export default function ProfilePage() {
           description: `The wallet status has been changed.`,
       });
   }
-
-  const toggleBalanceVisibility = () => {
-    setIsBalanceVisible(!isBalanceVisible);
-  };
   
   if (!user) return null;
 
@@ -237,9 +234,6 @@ export default function ProfilePage() {
                     <span className="text-lg font-bold">
                         {isBalanceVisible ? `${totalBalance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} KTC` : hiddenBalance}
                     </span>
-                    <button onClick={toggleBalanceVisibility} className="text-muted-foreground hover:text-primary">
-                      {isBalanceVisible ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                    </button>
                 </div>
             </div>
         </CardHeader>
