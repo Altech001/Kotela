@@ -62,7 +62,7 @@ export default function MyBotsPage() {
     const totalRevenue = 0; // This would require tracking bot lifetime earnings
 
     const handleToggle = async () => {
-        if (!botToToggle || !user) return;
+        if (!botToToggle || !user || !botToToggle.instanceId) return;
         try {
             await toggleBotStatus(user.id, botToToggle.instanceId);
             toast({ title: 'Success', description: `Bot status updated.` });
@@ -73,7 +73,7 @@ export default function MyBotsPage() {
     };
 
     const handleDelete = async () => {
-        if (!botToDelete || !user) return;
+        if (!botToDelete || !user || !botToDelete.instanceId) return;
         try {
             await deleteBot(user.id, botToDelete.instanceId);
             toast({ title: 'Success', description: `Bot has been retired.` });
@@ -158,7 +158,7 @@ export default function MyBotsPage() {
                     <div className="divide-y">
                         {miningBots.length > 0 ? miningBots.map((bot) => {
                             const botInfo = allBoosts.find(b => b.id === bot.boostId);
-                            if (!botInfo) return null;
+                            if (!botInfo || !bot.instanceId) return null;
                             return (
                                 <div key={bot.instanceId} className="p-4 grid grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_auto] items-center gap-4">
                                     <div className="flex items-center gap-4">
