@@ -3,7 +3,7 @@
 'use server';
 
 import { db } from '@/lib/firebase';
-import { collection, getDocs, orderBy, query, addDoc, serverTimestamp, where, doc, getDoc, writeBatch, deleteDoc, setDoc, arrayUnion, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, orderBy, query, addDoc, serverTimestamp, where, doc, getDoc, writeBatch, deleteDoc, setDoc, arrayUnion, updateDoc, increment } from 'firebase/firestore';
 import type { User, Comment, Boost, Powerup, Notification, MobileMoneyAccount, Transaction, Announcement, BonusGame, Video, KycSubmission, AdvertiserProfile, P2PListing, P2PPaymentMethod, P2PRegion, EnrichedP2PListing } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import { startOfDay, endOfDay } from 'date-fns';
@@ -467,15 +467,19 @@ export async function getP2PRegions(): Promise<P2PRegion[]> {
 }
 
 
-export async function createOrUpdateAdvertiser(profile: Omit<AdvertiserProfile, 'createdAt'>, initialListing: Omit<P2PListing, 'id' | 'advertiserId' | 'createdAt'>): Promise<void> {
+export async function createOrUpdateAdvertiser(profile: Omit<AdvertiserProfile, 'createdAt' | 'orders' | 'completion' | 'rating' | 'avgReleaseTime'>, initialListing: Omit<P2PListing, 'id' | 'advertiserId' | 'createdAt'>): Promise<void> {
     const batch = writeBatch(db);
     
     const advertiserRef = doc(db, 'p2pAdvertisers', profile.userId);
     const listingRef = doc(collection(db, 'p2pListings'));
     const userRef = doc(db, 'users', profile.userId);
 
-    const newProfile = {
+    const newProfile: Omit<AdvertiserProfile, 'createdAt'> & { createdAt: any } = {
         ...profile,
+        orders: 0,
+        completion: 100,
+        rating: 5,
+        avgReleaseTime: 5, // default 5 minutes
         createdAt: serverTimestamp(),
     };
     
@@ -543,7 +547,7 @@ export async function getActiveP2PListings(): Promise<EnrichedP2PListing[]> {
         const data = doc.data();
         onlineAdvsMap.set(doc.id, {
             ...data,
-            createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString()
+            createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString(),
         } as AdvertiserProfile);
     });
 
@@ -575,4 +579,5 @@ export async function getActiveP2PListings(): Promise<EnrichedP2PListing[]> {
 
     return enrichedListings.sort((a,b) => b.price - a.price);
 }
+
 
