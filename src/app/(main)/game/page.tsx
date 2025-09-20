@@ -79,12 +79,13 @@ export default function Home() {
               id,
               name: 'name' in item ? item.name : 'Bot',
               type: 'type' in item ? item.type : 'mining_bot',
-              instanceId: 'instanceId' in item ? item.instanceId : item.id,
+              // Use instanceId for bots, and the item's own id for inventory items
+              uniqueKey: 'instanceId' in item ? item.instanceId : item.id,
               quantity: 1,
           });
       }
       return acc;
-  }, [] as { id: string; name: string; type: string; instanceId: string; quantity: number }[]);
+  }, [] as { id: string; name: string; type: string; uniqueKey: string; quantity: number }[]);
 
 
   return (
@@ -208,7 +209,7 @@ export default function Home() {
                                const Icon = inventoryIcons[item.type] || inventoryIcons[item.id] || Zap;
                                
                                return (
-                                   <div key={item.instanceId} className="flex items-center gap-2 p-2 bg-muted rounded-md text-xs font-bold">
+                                   <div key={item.uniqueKey} className="flex items-center gap-2 p-2 bg-muted rounded-md text-xs font-bold">
                                        {Icon && <Icon className="w-4 h-4" />}
                                        <span>{item.name.split(' ')[0]} x {item.quantity}</span>
                                    </div>
