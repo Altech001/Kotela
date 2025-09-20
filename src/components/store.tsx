@@ -25,7 +25,7 @@ import { DialogHeader as UIDialogHeader, DialogTitle as UIDialogTitle, DialogDes
 import { useToast } from '@/hooks/use-toast';
 import { useGame } from '@/hooks/use-game';
 import { Bot, Clock, Zap, Snowflake, Gem, Coins, Gift, Bomb, Rocket } from 'lucide-react';
-import type { Boost, Powerup } from '@/lib/types';
+import type { Boost, Powerup, UserPowerup, UserBoost } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
 import { Badge } from '@/components/ui/badge';
 import { getBoosts, getPowerups } from '@/lib/actions';

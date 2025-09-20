@@ -24,16 +24,6 @@ export const powerupItems: Powerup[] = [
     maxQuantity: 1
   },
   {
-    id: 'missile',
-    name: 'Missile Boost',
-    description: '3x coin multiplier for 3s.',
-    cost: 1500,
-    type: 'score_multiplier',
-    value: 3,
-    status: 'available',
-    maxQuantity: 99,
-  },
-  {
     id: 'extraTime',
     name: 'Extra Time',
     description: 'Adds 10 seconds to the game.',
@@ -51,16 +41,6 @@ export const powerupItems: Powerup[] = [
     description: 'Pause the timer for 5s.',
     cost: 2000,
     type: 'time_freeze',
-    value: 5,
-    status: 'available',
-    maxQuantity: 99,
-  },
-  {
-    id: 'frenzy',
-    name: 'Frenzy',
-    description: 'Auto-mine for 3 seconds.',
-    cost: 2500,
-    type: 'score_multiplier',
     value: 5,
     status: 'available',
     maxQuantity: 99,

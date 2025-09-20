@@ -267,7 +267,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
                     newPowerups.push({
                         powerupId: powerupItem.id,
                         purchasedAt: new Date().toISOString(),
-                        quantity: 1
+                        quantity: 1,
+                        value: powerupItem.value,
                     });
                 }
                 
@@ -454,5 +455,3 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
 }
-
-    

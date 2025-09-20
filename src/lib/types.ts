@@ -40,7 +40,7 @@ export type Boost = {
   name: string;
   description: string;
   cost: number;
-  type: 'score_multiplier' | 'extra_time' | 'time_freeze' | 'mining_bot' | 'scoreBomb' | 'frenzy';
+  type: 'score_multiplier' | 'extra_time' | 'time_freeze' | 'mining_bot' | 'scoreBomb' | 'frenzy' | 'missile' | 'rocket';
   value: number; // e.g., 2 for 2x multiplier, 10 for 10 extra seconds
   status: 'available' | 'sold';
   free?: boolean;
@@ -72,6 +72,7 @@ export type UserPowerup = {
   powerupId: string;
   purchasedAt: string;
   quantity: number;
+  value: number;
 };
 
 export type Transaction = {

@@ -3,7 +3,7 @@
 
 import { useState, useCallback, ReactNode, useEffect } from 'react';
 import { AuthContext } from '@/contexts/auth-context';
-import type { User, Transaction, Boost, Powerup, Wallet, UserBoost } from '@/lib/types';
+import type { User, Transaction, Boost, Powerup, Wallet, UserBoost, UserPowerup } from '@/lib/types';
 import { auth, db } from '@/lib/firebase';
 import {
   onAuthStateChanged,
@@ -428,5 +428,3 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
-
-    
