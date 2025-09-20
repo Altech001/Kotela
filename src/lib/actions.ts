@@ -2,8 +2,8 @@
 'use server';
 
 import { db } from '@/lib/firebase';
-import { collection, getDocs, orderBy, query, addDoc, serverTimestamp, where, doc, getDoc, writeBatch, deleteDoc } from 'firebase/firestore';
-import type { User, Comment, Boost, Powerup, Notification, MobileMoneyAccount, Transaction, Announcement } from '@/lib/types';
+import { collection, getDocs, orderBy, query, addDoc, serverTimestamp, where, doc, getDoc, writeBatch, deleteDoc, setDoc } from 'firebase/firestore';
+import type { User, Comment, Boost, Powerup, Notification, MobileMoneyAccount, Transaction, Announcement, BonusGame, Video } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import { startOfDay, endOfDay } from 'date-fns';
 
@@ -257,4 +257,83 @@ export async function getAnnouncements(): Promise<Announcement[]> {
         console.error('Error fetching announcements:', error);
         return [];
     }
+}
+
+export async function getBonusGames(): Promise<BonusGame[]> {
+    try {
+        const bonusGamesRef = collection(db, 'bonusGames');
+        const snapshot = await getDocs(query(bonusGamesRef, orderBy('order')));
+        if (snapshot.empty) {
+            // Seed the data if it doesn't exist
+            await seedBonusGames();
+            const newSnapshot = await getDocs(query(bonusGamesRef, orderBy('order')));
+            return newSnapshot.docs.map(doc => doc.data() as BonusGame);
+        }
+        return snapshot.docs.map(doc => doc.data() as BonusGame);
+    } catch (e) {
+        console.error("Error fetching bonus games: ", e);
+        return [];
+    }
+}
+
+export async function getBonusGameDetails(gameId: string): Promise<BonusGame | null> {
+    try {
+        const gameRef = doc(db, 'bonusGames', gameId);
+        const docSnap = await getDoc(gameRef);
+        return docSnap.exists() ? docSnap.data() as BonusGame : null;
+    } catch (error) {
+        console.error("Error fetching game details:", error);
+        return null;
+    }
+}
+
+export async function getVideos(): Promise<Video[]> {
+    try {
+        const videosRef = collection(db, 'videos');
+        const snapshot = await getDocs(query(videosRef, orderBy('id')));
+         if (snapshot.empty) {
+            await seedVideos();
+            const newSnapshot = await getDocs(query(videosRef, orderBy('id')));
+            return newSnapshot.docs.map(doc => doc.data() as Video);
+        }
+        return snapshot.docs.map(doc => doc.data() as Video);
+    } catch (e) {
+        console.error("Error fetching videos: ", e);
+        return [];
+    }
+}
+
+async function seedBonusGames() {
+    const batch = writeBatch(db);
+    const games: BonusGame[] = [
+        { id: 'puzzle-game', name: 'Puzzle Game', description: 'Solve an AI-generated puzzle to win a prize!', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19.43 12.03c.25.82.25 1.71 0 2.54l-1.73 4.41a2 2 0 0 1-3.46.35l-1.73-4.41a2.43 2.43 0 0 0-2.54 0l-1.73 4.41a2 2 0 0 1-3.46-.35l-1.73-4.41a2.43 2.43 0 0 0 0-2.54l1.73-4.41a2 2 0 0 1 3.46-.35l1.73 4.41c.82.25 1.71.25 2.54 0l1.73-4.41a2 2 0 0 1 3.46.35l1.73 4.41z"/></svg>', order: 1 },
+        { id: 'video-play', name: 'VideoAds', description: 'Watch videos to earn rewards.', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2" ry="2"/></svg>', order: 2 },
+        { id: 'wiseman', name: 'WiseMan', description: "Stake your coins and answer the WiseMan's question. Win and get rewarded, fail and lose your stake.", icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/><path d="m9 9.5 2 2 4-4"/></svg>', order: 3 },
+        { id: 'lucky-dice', name: 'Lucky Dice', description: 'Roll the dice and win rewards based on your roll.', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><path d="M16 8h.01"/><path d="M12 12h.01"/><path d="M8 8h.01"/><path d="M8 12h.01"/><path d="M8 16h.01"/><path d="M16 16h.01"/><path d="M12 16h.01"/></svg>', order: 4 },
+        { id: 'coin-flip', name: 'Coin Flip', description: 'Flip a coin and double your stake, or lose it all.', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7.5a10 10 0 0 0-10 10c0 5.52 4.48 10 10 10s10-4.48 10-10a10 10 0 0 0-10-10z"/><path d="M12 8c-3.87 0-7 3.13-7 7"/><path d="M12 2v2"/><path d="M12 19v2"/></svg>', order: 5 },
+      ];
+    games.forEach(game => {
+        const docRef = doc(db, 'bonusGames', game.id);
+        batch.set(docRef, game);
+    });
+    await batch.commit();
+}
+
+async function seedVideos() {
+    const batch = writeBatch(db);
+    const videos: Video[] = [
+        { id: 1, title: 'Learn App Hosting', duration: '1:40', reward: 50, youtubeId: 'Vxa_DzLtlTI', watchTime: 60 },
+        { id: 2, title: 'AI-powered Apps with Firebase', duration: '6:37', reward: 75, youtubeId: 'LXb3EKWsInQ', watchTime: 60 },
+        { id: 3, title: 'Get Started with Firebase', duration: '3:00', reward: 100, youtubeId: 'Vxa_DzLtlTI', watchTime: 60 },
+        { id: 4, title: 'Firebase Crashlytics', duration: '9:25', reward: 150, youtubeId: 'Vxa_DzLtlTI', watchTime: 60 },
+        { id: 5, title: 'Firebase Remote Config', duration: '5:10', reward: 125, youtubeId: 'Vxa_DzLtlTI', watchTime: 60 },
+        { id: 6, title: 'Build a Gen AI chat app', duration: '8:15', reward: 200, youtubeId: 'LXb3EKWsInQ', watchTime: 60 },
+        { id: 7, title: 'What is Genkit?', duration: '0:25', reward: 110, youtubeId: 'Vxa_DzLtlTI', watchTime: 25 },
+        { id: 8, title: 'The future of AI', duration: '0:55', reward: 250, youtubeId: 'LXb3EKWsInQ', watchTime: 55 },
+    ];
+    videos.forEach(video => {
+        const docRef = doc(db, 'videos', video.id.toString());
+        batch.set(docRef, video);
+    });
+    await batch.commit();
 }

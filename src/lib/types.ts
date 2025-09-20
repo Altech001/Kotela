@@ -172,3 +172,20 @@ export type Announcement = {
   date: string; // ISO String
   href?: string;
 };
+
+export type BonusGame = {
+    id: string;
+    name: string;
+    description: string;
+    icon: string; // SVG string
+    order: number;
+};
+
+export type Video = {
+    id: number;
+    title: string;
+    duration: string;
+    reward: number;
+    youtubeId: string;
+    watchTime: number;
+};

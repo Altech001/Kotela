@@ -126,9 +126,11 @@ export default function Home() {
               </div>
             </div>
              <div className="flex items-center gap-2">
-                <Button variant="secondary" className="shadow-lg">
-                    <Gift className="h-4 w-4 sm:mr-2" />
-                    <span className="hidden sm:inline">Bonus Rewards</span>
+                <Button asChild variant="secondary" className="shadow-lg">
+                    <Link href="/bonus">
+                      <Gift className="h-4 w-4 sm:mr-2" />
+                      <span className="hidden sm:inline">Bonus Rewards</span>
+                    </Link>
                 </Button>
             </div>
           </div>
