@@ -21,6 +21,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { ChevronRight, Loader2, ArrowLeft, ArrowRight, CheckCircle } from 'lucide-react';
+import { FormField } from '@/components/ui/form';
 
 const applicationSchema = z.object({
   paymentMethods: z.array(z.string()).min(1, "Select at least one payment method."),
