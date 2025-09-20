@@ -131,3 +131,9 @@ export type MobileMoneyAccount = {
     name: string;
     createdAt: string; // ISO string
 };
+
+export type Announcement = {
+  text: string;
+  date: string;
+  href?: string;
+};

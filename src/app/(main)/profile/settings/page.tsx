@@ -72,6 +72,13 @@ const profileFormSchema = z.object({
 
 type ProfileFormValues = z.infer<typeof profileFormSchema>;
 
+const mobileMoneySchema = z.object({
+    provider: z.string().min(2, { message: "Provider name is required."}),
+    number: z.string().min(10, { message: "Please enter a valid phone number."}),
+    name: z.string().min(2, { message: "Account name is required."}),
+});
+type MobileMoneyFormValues = z.infer<typeof mobileMoneySchema>;
+
 export default function SettingsPage() {
   const { user, updateUser, verifyPhoneNumber } = useAuth();
   const { toast } = useToast();
@@ -80,24 +87,34 @@ export default function SettingsPage() {
   const [otp, setOtp] = useState('');
   const [mobileAccounts, setMobileAccounts] = useState<MobileMoneyAccount[]>([]);
   const [dailyWithdrawals, setDailyWithdrawals] = useState<Transaction[]>([]);
+  const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
 
-  const form = useForm<ProfileFormValues>({
+  const profileForm = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
     defaultValues: {
       name: user?.name || '',
       email: user?.email || '',
     },
   });
+  
+  const mobileMoneyForm = useForm<MobileMoneyFormValues>({
+    resolver: zodResolver(mobileMoneySchema),
+    defaultValues: {
+        provider: '',
+        number: '',
+        name: ''
+    }
+  });
 
   useEffect(() => {
     if (user) {
-      form.reset({
+      profileForm.reset({
         name: user.name,
         email: user.email,
       });
       fetchMobileMoneyData(user.id);
     }
-  }, [user, form]);
+  }, [user, profileForm]);
   
   const fetchMobileMoneyData = async (userId: string) => {
     const [accounts, withdrawals] = await Promise.all([
@@ -141,6 +158,31 @@ export default function SettingsPage() {
       }
       setIsSubmitting(false);
   }
+  
+  const onAddMobileMoneySubmit = async (data: MobileMoneyFormValues) => {
+      if (!user) return;
+      setIsSubmitting(true);
+      try {
+          await addMobileMoneyAccount({ ...data, userId: user.id });
+          toast({ title: 'Account Added', description: 'The mobile money account has been successfully added.' });
+          fetchMobileMoneyData(user.id);
+          setIsAddAccountOpen(false);
+          mobileMoneyForm.reset();
+      } catch (error: any) {
+          toast({ variant: 'destructive', title: 'Failed to Add Account', description: error.message });
+      }
+      setIsSubmitting(false);
+  }
+  
+  const handleDeleteMobileMoney = async (accountId: string) => {
+      try {
+          await deleteMobileMoneyAccount(accountId);
+          toast({ title: 'Account Removed', description: 'The mobile money account has been removed.'});
+          if(user) fetchMobileMoneyData(user.id);
+      } catch(error: any) {
+          toast({ variant: 'destructive', title: 'Failed to Remove', description: error.message });
+      }
+  }
 
   if (!user) {
     return <div className="flex h-screen items-center justify-center">Loading...</div>;
@@ -173,11 +215,11 @@ export default function SettingsPage() {
             Update your public profile information.
           </CardDescription>
         </CardHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onProfileSubmit)}>
+        <Form {...profileForm}>
+          <form onSubmit={profileForm.handleSubmit(onProfileSubmit)}>
             <CardContent className="space-y-4">
               <FormField
-                control={form.control}
+                control={profileForm.control}
                 name="name"
                 render={({ field }) => (
                   <FormItem>
@@ -190,7 +232,7 @@ export default function SettingsPage() {
                 )}
               />
               <FormField
-                control={form.control}
+                control={profileForm.control}
                 name="email"
                 render={({ field }) => (
                   <FormItem>
@@ -282,7 +324,61 @@ export default function SettingsPage() {
               <CardTitle>Mobile Money</CardTitle>
               <CardDescription>Manage your mobile money accounts for withdrawals.</CardDescription>
             </div>
-            <Button size="sm"><PlusCircle className="mr-2"/> Add Account</Button>
+            <Dialog open={isAddAccountOpen} onOpenChange={setIsAddAccountOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm"><PlusCircle className="mr-2"/> Add Account</Button>
+              </DialogTrigger>
+              <DialogContent>
+                 <DialogHeader>
+                    <DialogTitle>Add Mobile Money Account</DialogTitle>
+                    <DialogDescription>Enter the details for your new mobile money account.</DialogDescription>
+                 </DialogHeader>
+                 <Form {...mobileMoneyForm}>
+                    <form onSubmit={mobileMoneyForm.handleSubmit(onAddMobileMoneySubmit)} className="space-y-4 py-4">
+                      <FormField
+                          control={mobileMoneyForm.control}
+                          name="provider"
+                          render={({ field }) => (
+                          <FormItem>
+                              <FormLabel>Provider</FormLabel>
+                              <FormControl><Input placeholder="e.g. MTN, Airtel" {...field} /></FormControl>
+                              <FormMessage />
+                          </FormItem>
+                          )}
+                      />
+                      <FormField
+                          control={mobileMoneyForm.control}
+                          name="number"
+                          render={({ field }) => (
+                          <FormItem>
+                              <FormLabel>Phone Number</FormLabel>
+                              <FormControl><Input type="tel" placeholder="07..." {...field} /></FormControl>
+                              <FormMessage />
+                          </FormItem>
+                          )}
+                      />
+                       <FormField
+                          control={mobileMoneyForm.control}
+                          name="name"
+                          render={({ field }) => (
+                          <FormItem>
+                              <FormLabel>Account Name</FormLabel>
+                              <FormControl><Input placeholder="e.g. John Doe" {...field} /></FormControl>
+                              <FormMessage />
+                          </FormItem>
+                          )}
+                      />
+                      <DialogFooter>
+                          <Button type="button" variant="ghost" onClick={() => setIsAddAccountOpen(false)}>Cancel</Button>
+                          <Button type="submit" disabled={isSubmitting}>
+                              {isSubmitting && <Loader2 className="mr-2 animate-spin" />}
+                              Save Account
+                          </Button>
+                      </DialogFooter>
+                    </form>
+                 </Form>
+              </DialogContent>
+            </Dialog>
           </div>
         </CardHeader>
         <CardContent>
@@ -296,7 +392,9 @@ export default function SettingsPage() {
                                 <p className="text-sm text-muted-foreground">{acc.number}</p>
                             </div>
                         </div>
-                        <Button variant="ghost" size="icon"><Trash2 className="text-destructive"/></Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleDeleteMobileMoney(acc.id)}>
+                            <Trash2 className="text-destructive"/>
+                        </Button>
                     </div>
                 ))}
                 {mobileAccounts.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">No mobile money accounts added.</p>}

@@ -3,7 +3,7 @@
 
 import { db } from '@/lib/firebase';
 import { collection, getDocs, orderBy, query, addDoc, serverTimestamp, where, doc, getDoc, writeBatch, deleteDoc } from 'firebase/firestore';
-import type { User, Comment, Boost, Powerup, Notification, MobileMoneyAccount, Transaction } from '@/lib/types';
+import type { User, Comment, Boost, Powerup, Notification, MobileMoneyAccount, Transaction, Announcement } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import { startOfDay, endOfDay } from 'date-fns';
 
@@ -233,4 +233,20 @@ export async function getDailyWithdrawals(userId: string): Promise<Transaction[]
         new Date(tx.timestamp) >= todayStart
     )
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+}
+
+export async function getAnnouncements(): Promise<Announcement[]> {
+    try {
+        const announcementsRef = collection(db, 'announcements');
+        const q = query(announcementsRef, orderBy('date', 'desc'));
+        const querySnapshot = await getDocs(q);
+        const announcements: Announcement[] = [];
+        querySnapshot.forEach((doc) => {
+            announcements.push(doc.data() as Announcement);
+        });
+        return announcements;
+    } catch (error) {
+        console.error('Error fetching announcements:', error);
+        return [];
+    }
 }
