@@ -41,6 +41,9 @@ const createUserObject = (firebaseUser: FirebaseUser, extraData: Partial<User> =
   ],
   isKycVerified: false,
   isPhoneVerified: false,
+  settings: {
+    showAnnouncements: true,
+  },
   ...extraData,
 });
 
@@ -48,6 +51,7 @@ async function initializeCollections() {
     const boostsRef = collection(db, 'boosts');
     const powerupsRef = collection(db, 'powerups');
     const configRef = doc(db, 'config', 'gameConfig');
+    const announcementsRef = collection(db, 'announcements');
     const batch = writeBatch(db);
 
     // This will now overwrite existing data, ensuring the DB is in sync with local files
@@ -67,9 +71,22 @@ async function initializeCollections() {
       batch.set(configRef, { baseGameDuration: 30 });
     }
 
+    // Initialize announcements if it doesn't exist
+    const announcementsSnapshot = await getDocs(query(announcementsRef, where("id", "==", "welcome-banner")));
+    if (announcementsSnapshot.empty) {
+        const welcomeAnnouncement = {
+            id: "welcome-banner",
+            title: "Welcome to Kotela!",
+            description: "Start mining, complete your KYC, and explore the store to boost your earnings. Happy mining!",
+            date: new Date(),
+            href: "/game"
+        };
+        batch.set(doc(announcementsRef, welcomeAnnouncement.id), welcomeAnnouncement);
+    }
+
 
     await batch.commit();
-    console.log("Initialized/updated 'boosts', 'powerups', and 'gameConfig' collections from local data.");
+    console.log("Initialized/updated 'boosts', 'powerups', 'gameConfig', and 'announcements' collections.");
 }
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {

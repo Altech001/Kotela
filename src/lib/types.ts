@@ -25,6 +25,9 @@ export type User = {
   referredBy?: string; // ID of the user who referred this user
   otpHash?: string;
   otpExpiry?: string; // ISO string
+  settings?: {
+    showAnnouncements?: boolean;
+  };
 };
 
 export type UserInventoryItem = {
@@ -163,7 +166,9 @@ export type MobileMoneyAccount = {
 };
 
 export type Announcement = {
-  text: string;
-  date: string;
+  id: string;
+  title: string;
+  description: string;
+  date: string; // ISO String
   href?: string;
 };

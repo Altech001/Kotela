@@ -43,6 +43,7 @@ import {
   Banknote,
   Loader2,
   Palette,
+  Megaphone,
 } from 'lucide-react';
 import {
   Dialog,
@@ -65,6 +66,7 @@ import { format } from 'date-fns';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ThemeToggle } from '@/components/layout/theme-toggle';
+import { Switch } from '@/components/ui/switch';
 
 const profileFormSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
@@ -221,6 +223,11 @@ export default function SettingsPage() {
       }
   }
 
+  const handleSettingsChange = (key: string, value: any) => {
+    if (!user) return;
+    updateUser({ settings: { ...user.settings, [key]: value } });
+  };
+
   const watchedAccountId = phoneVerificationForm.watch("accountId");
   const selectedAccountForVerification = mobileAccounts.find(acc => acc.id === watchedAccountId);
 
@@ -297,10 +304,10 @@ export default function SettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Appearance</CardTitle>
+          <CardTitle>Appearance & Notifications</CardTitle>
           <CardDescription>Customize the look and feel of the app.</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <div className="p-4 border rounded-lg flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Palette className="text-muted-foreground" />
@@ -310,6 +317,19 @@ export default function SettingsPage() {
               </div>
             </div>
             <ThemeToggle />
+          </div>
+          <div className="p-4 border rounded-lg flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Megaphone className="text-muted-foreground" />
+              <div>
+                <p className="font-semibold">Show Announcement Banner</p>
+                <p className="text-sm text-muted-foreground">Show important news on startup.</p>
+              </div>
+            </div>
+             <Switch
+                checked={user.settings?.showAnnouncements ?? true}
+                onCheckedChange={(checked) => handleSettingsChange('showAnnouncements', checked)}
+              />
           </div>
         </CardContent>
       </Card>

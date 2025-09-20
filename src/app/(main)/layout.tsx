@@ -5,6 +5,7 @@ import { useBackgroundMining } from '@/hooks/use-background-mining';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect } from 'react';
+import { AnnouncementBanner } from '@/components/announcement-banner';
 
 const noNavRoutes = ['/profile/verify'];
 
@@ -37,6 +38,7 @@ export default function MainLayout({
         {children}
       </main>
       {showNav && <MobileNav />}
+      <AnnouncementBanner />
     </div>
   );
 }

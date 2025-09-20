@@ -242,14 +242,17 @@ export async function getDailyWithdrawals(userId: string): Promise<Transaction[]
 
 export async function getAnnouncements(): Promise<Announcement[]> {
     try {
-        const announcementsRef = collection(db, 'announcements');
-        const q = query(announcementsRef, orderBy('date', 'desc'));
-        const querySnapshot = await getDocs(q);
-        const announcements: Announcement[] = [];
-        querySnapshot.forEach((doc) => {
-            announcements.push(doc.data() as Announcement);
+        const ref = collection(db, 'announcements');
+        const q = query(ref, orderBy('date', 'desc'));
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                id: doc.id,
+                ...data,
+                date: data.date.toDate().toISOString(),
+            } as Announcement;
         });
-        return announcements;
     } catch (error) {
         console.error('Error fetching announcements:', error);
         return [];
