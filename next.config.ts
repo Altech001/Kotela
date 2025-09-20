@@ -36,6 +36,18 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  webpack: (config, { isServer }) => {
+    // Add a rule to ignore the .genkit directory
+    // This is to prevent the Next.js dev server from restarting when
+    // Genkit generates files.
+    if (Array.isArray(config.watchOptions.ignored)) {
+      config.watchOptions.ignored.push('**/.genkit/**');
+    } else {
+      config.watchOptions.ignored = ['**/.genkit/**'];
+    }
+
+    return config;
+  },
 };
 
 export default nextConfig;
