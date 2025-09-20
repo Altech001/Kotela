@@ -52,7 +52,7 @@ export default function LoginPage() {
         <div className="grid gap-2 text-center">
           <h1 className="text-3xl font-bold">Welcome Back</h1>
           <p className="text-muted-foreground">
-            Sign in to continue your mining journey.
+            Login to continue your mining journey.
           </p>
         </div>
 
