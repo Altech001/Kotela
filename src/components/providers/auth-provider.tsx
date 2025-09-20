@@ -12,7 +12,7 @@ import {
   signOut,
   User as FirebaseUser,
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs, writeBatch, arrayUnion, runTransaction, or } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs, writeBatch, arrayUnion, runTransaction, or, onSnapshot } from 'firebase/firestore';
 import { storeItems as localStoreItems } from '@/lib/data';
 import { powerupItems as localPowerupItems } from '@/lib/powerups-data';
 import { addNotification } from '@/lib/actions';
@@ -369,3 +369,5 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
+
+    
