@@ -11,6 +11,27 @@ import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 
+const formatTime = (ms: number): string => {
+    if (ms <= 0) return "0s";
+
+    const seconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    if (days > 0) {
+        return `${days}d ${hours % 24}h`;
+    }
+    if (hours > 0) {
+        return `${hours}h ${minutes % 60}m`;
+    }
+    if (minutes > 0) {
+        return `${minutes}m ${seconds % 60}s`;
+    }
+    return `${seconds}s`;
+};
+
+
 const GameCard = ({ game }: { game: BonusGame }) => {
     const [progress, setProgress] = useState(0);
     const [status, setStatus] = useState<'available' | 'cooldown' | 'active'>('cooldown');
@@ -33,10 +54,7 @@ const GameCard = ({ game }: { game: BonusGame }) => {
                 setProgress(progressPercentage);
                 
                 const remaining = availableTime - now;
-                const hours = Math.floor(remaining / (1000 * 60 * 60));
-                const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
-                const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
-                setLabel(`Next in: ${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+                setLabel(`Next in: ${formatTime(remaining)}`);
 
             } else {
                  if (game.durationMinutes) {
@@ -48,10 +66,7 @@ const GameCard = ({ game }: { game: BonusGame }) => {
                         const progressPercentage = Math.max(0, (remaining / durationMs) * 100);
                         setProgress(progressPercentage);
 
-                        const hours = Math.floor(remaining / (1000 * 60 * 60));
-                        const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
-                        const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
-                        setLabel(`Ends in: ${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+                        setLabel(`Ends in: ${formatTime(remaining)}`);
 
                     } else {
                         // Duration has ended, but it might be on cooldown for the next cycle.
