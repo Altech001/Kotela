@@ -109,30 +109,40 @@ export default function Home() {
     <div className="flex flex-col min-h-[calc(100vh-4rem)] bg-background">
       <header className="py-4">
         <div className="container mx-auto flex w-full flex-col items-start justify-between gap-4">
-          <div className="w-full">
-            <h1 className="text-2xl font-bold tracking-tight text-primary font-headline">
-              Mine
-            </h1>
-            <div className="flex items-center gap-2 mt-1">
-              <MapPin className="w-4 h-4 text-muted-foreground" />
-              {userLocation.loading ? (
-                <Skeleton className="h-4 w-[100px]" />
-              ) : userLocation.error ? (
-                <p className="text-xs text-destructive">{userLocation.error}</p>
-              ) : (
-                <p className="text-sm text-muted-foreground">{userLocation.displayLocation}</p>
-              )}
+          <div className="w-full flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-primary font-headline">
+                Mine
+              </h1>
+              <div className="flex items-center gap-2 mt-1">
+                <MapPin className="w-4 h-4 text-muted-foreground" />
+                {userLocation.loading ? (
+                  <Skeleton className="h-4 w-[100px]" />
+                ) : userLocation.error ? (
+                  <p className="text-xs text-destructive">{userLocation.error}</p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">{userLocation.displayLocation}</p>
+                )}
+              </div>
             </div>
-            <p className="text-sm text-muted-foreground max-w-xs mt-2">
-              Start mining and use boosts to get a high score!
-            </p>
+             <div className="flex items-center gap-2">
+                <Button variant="secondary" className="shadow-lg">
+                    <Gift className="mr-2 h-4 w-4" />
+                    Bonus Rewards
+                </Button>
+            </div>
           </div>
-          <div className="w-full flex items-center justify-between">
-            <div className="flex items-center justify-start gap-2 text-lg font-bold text-primary px-2">
-                <Coins className="w-5 h-5 text-yellow-500"/>
-                <span className='text-lg'>{user?.ktc.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
-            </div>
-            <div className="flex items-center gap-4">
+           <div className="w-full flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+             <div>
+                <p className="text-sm text-muted-foreground max-w-xs">
+                  Start mining and use boosts to get a high score!
+                </p>
+             </div>
+             <div className="flex items-center gap-4">
+                <div className="flex items-center justify-start gap-2 text-lg font-bold text-primary px-2">
+                    <Coins className="w-5 h-5 text-yellow-500"/>
+                    <span className='text-lg'>{user?.ktc.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                </div>
                  <Dialog open={isBotDialogOpen} onOpenChange={setIsBotDialogOpen}>
                     <DialogTrigger asChild>
                         <Button variant="outline" size="sm">
@@ -242,12 +252,6 @@ export default function Home() {
                 <BlogWidget limit={3} showViewAll={true} />
             </div>
           </div>
-        </div>
-        <div className="fixed bottom-20 right-4 z-50 md:bottom-8">
-            <Button variant="secondary" className="shadow-lg">
-                <Gift className="mr-2 h-4 w-4" />
-                Bonus Rewards
-            </Button>
         </div>
       </main>
 
