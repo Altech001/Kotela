@@ -13,4 +13,14 @@ export const powerupItems: Powerup[] = [
     status: 'available',
     maxQuantity: 1,
   },
+  {
+    id: 'bot-upgrade-1',
+    name: 'Mining Bot Upgrade',
+    description: 'Doubles the offline mining rate of your bots.',
+    cost: 7500,
+    type: 'bot_upgrade',
+    value: 2,
+    status: 'available',
+    maxQuantity: 1
+  }
 ];

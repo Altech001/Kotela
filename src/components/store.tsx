@@ -24,7 +24,7 @@ import {
 import { DialogHeader as UIDialogHeader, DialogTitle as UIDialogTitle, DialogDescription as UIDialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useGame } from '@/hooks/use-game';
-import { Bot, Clock, Zap, Snowflake, Gem } from 'lucide-react';
+import { Bot, Clock, Zap, Snowflake, Gem, Coins } from 'lucide-react';
 import type { Boost, Powerup } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
 import { Badge } from '@/components/ui/badge';
@@ -42,27 +42,36 @@ const iconMap: { [key: string]: React.ElementType } = {
   extra_time: Clock,
   time_freeze: Snowflake,
   permanent_multiplier: Gem,
+  bot_upgrade: Gem,
 };
 
 const ItemCard = ({ item, onBuyClick, userPowerups }: { item: StoreItem, onBuyClick: (item: StoreItem) => void, userPowerups: string[] }) => {
     const Icon = iconMap[item.type];
-    const isSoldOut = item.status === 'sold' || ('maxQuantity' in item && item.maxQuantity === 1 && userPowerups.includes(item.id));
+    const isPowerup = 'maxQuantity' in item;
+    const isSoldOut = item.status === 'sold' || (isPowerup && item.maxQuantity === 1 && userPowerups.includes(item.id));
+    
     return (
-        <Card className="flex flex-col relative overflow-hidden">
-        {isSoldOut && <Badge variant="secondary" className="absolute top-2 right-2">Owned</Badge>}
-        <CardHeader className="flex-row items-start gap-4 space-y-0">
-            <div className="flex-1">
-            <CardTitle>{item.name}</CardTitle>
-            <CardDescription>{item.description}</CardDescription>
-            </div>
-            {Icon && <Icon className="h-8 w-8 text-muted-foreground" />}
-        </CardHeader>
-        <CardContent className="flex-1"></CardContent>
-        <CardFooter>
-            <Button className="w-full" onClick={() => onBuyClick(item)} disabled={isSoldOut}>
-            Buy for {item.cost} KTC
-            </Button>
-        </CardFooter>
+        <Card className="flex flex-col shadow-sm hover:shadow-lg transition-shadow duration-300 relative overflow-hidden">
+            {isSoldOut && <Badge variant="secondary" className="absolute top-2 right-2 z-10">Owned</Badge>}
+            <CardHeader className="flex-row items-start gap-4 space-y-0 pb-2">
+                <div className="p-3 bg-muted rounded-full">
+                    {Icon && <Icon className="w-6 h-6 text-primary"/>}
+                </div>
+                <div className="space-y-0.5">
+                    <CardTitle className="text-base">{item.name}</CardTitle>
+                    <CardDescription className="text-xs">{item.description}</CardDescription>
+                </div>
+            </CardHeader>
+            <CardContent className='flex-grow' />
+            <CardFooter className="flex-grow flex items-center justify-between mt-auto pt-3 pb-3 px-4 border-t bg-muted/30">
+                 <div className="font-bold text-lg flex items-center gap-1.5">
+                    <Coins className="w-5 h-5 text-yellow-500" />
+                    {item.cost.toLocaleString()}
+                </div>
+                <Button onClick={() => onBuyClick(item)} disabled={isSoldOut}>
+                    Buy
+                </Button>
+            </CardFooter>
         </Card>
     );
 };
@@ -106,6 +115,14 @@ export function Store({ isDialog = false }: { isDialog?: boolean }) {
       });
       return;
     }
+    if (user && user.ktc < item.cost) {
+      toast({
+        title: 'Not enough KTC!',
+        description: `You need ${item.cost.toLocaleString()} KTC to buy this item.`,
+        variant: 'destructive',
+      });
+      return;
+    }
     setSelectedItem(item);
     setShowConfirmDialog(true);
   };
@@ -132,50 +149,48 @@ export function Store({ isDialog = false }: { isDialog?: boolean }) {
   };
 
   const StoreContent = () => (
-     <Tabs defaultValue="boosts" className="flex-1 flex flex-col">
-        <TabsList className={cn("grid w-full grid-cols-2", isDialog && "m-4 mb-0")}>
-            <TabsTrigger value="boosts">Boosts</TabsTrigger>
-            <TabsTrigger value="powerups">Power-ups</TabsTrigger>
-        </TabsList>
-        <div className={cn(isDialog && "p-4")}>
-          <TabsContent value="boosts">
-              {loading ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {Array.from({ length: 6 }).map((_, i) => (
-                      <Card key={i}>
-                      <CardHeader><Skeleton className="h-6 w-3/4" /></CardHeader>
-                      <CardContent><Skeleton className="h-4 w-full" /></CardContent>
-                      <CardFooter><Skeleton className="h-10 w-full" /></CardFooter>
-                      </Card>
-                  ))}
-                  </div>
-              ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {boosts.map((item) => (
-                          <ItemCard key={item.id} item={item} onBuyClick={handleBuyClick} userPowerups={userPowerups} />
-                      ))}
-                  </div>
-              )}
-          </TabsContent>
-           <TabsContent value="powerups">
-              {loading ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                   {Array.from({ length: 2 }).map((_, i) => (
-                      <Card key={i}>
-                      <CardHeader><Skeleton className="h-6 w-3/4" /></CardHeader>
-                      <CardContent><Skeleton className="h-4 w-full" /></CardContent>
-                      <CardFooter><Skeleton className="h-10 w-full" /></CardFooter>
-                      </Card>
-                  ))}
-                  </div>
-              ) : (
-                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {powerups.map((item) => (
-                         <ItemCard key={item.id} item={item} onBuyClick={handleBuyClick} userPowerups={userPowerups} />
-                      ))}
-                  </div>
-              )}
-          </TabsContent>
+     <Tabs defaultValue="boosts" className="flex-1 flex flex-col h-full">
+        <div className={cn("px-4", isDialog && "pt-4")}>
+          <TabsList className={cn("grid w-full grid-cols-2")}>
+              <TabsTrigger value="boosts">Boosts</TabsTrigger>
+              <TabsTrigger value="powerups">Power-ups</TabsTrigger>
+          </TabsList>
+        </div>
+        <div className="flex-1 overflow-hidden">
+            <ScrollArea className="h-full">
+                <div className={cn("p-4")}>
+                  <TabsContent value="boosts">
+                      {loading ? (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {Array.from({ length: 6 }).map((_, i) => (
+                              <Skeleton className="h-40" key={i} />
+                          ))}
+                          </div>
+                      ) : (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                              {boosts.map((item) => (
+                                  <ItemCard key={item.id} item={item} onBuyClick={handleBuyClick} userPowerups={userPowerups} />
+                              ))}
+                          </div>
+                      )}
+                  </TabsContent>
+                   <TabsContent value="powerups">
+                      {loading ? (
+                           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                           {Array.from({ length: 2 }).map((_, i) => (
+                              <Skeleton className="h-40" key={i} />
+                          ))}
+                          </div>
+                      ) : (
+                           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                              {powerups.map((item) => (
+                                 <ItemCard key={item.id} item={item} onBuyClick={handleBuyClick} userPowerups={userPowerups} />
+                              ))}
+                          </div>
+                      )}
+                  </TabsContent>
+                </div>
+            </ScrollArea>
         </div>
       </Tabs>
   );
@@ -198,9 +213,9 @@ export function Store({ isDialog = false }: { isDialog?: boolean }) {
                 </div>
             </div>
           </UIDialogHeader>
-          <ScrollArea className='flex-1'>
+          <div className='flex-1 overflow-hidden'>
             <StoreContent />
-          </ScrollArea>
+          </div>
         </>
       ) : (
         <StoreContent />

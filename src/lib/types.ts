@@ -29,7 +29,7 @@ export type Powerup = {
   name: string;
   description: string;
   cost: number;
-  type: 'permanent_multiplier';
+  type: 'permanent_multiplier' | 'bot_upgrade';
   value: number;
   status: 'available' | 'sold';
   maxQuantity: 1;
