@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -9,14 +10,6 @@ import { useRouter } from 'next/navigation';
 import { useState, FormEvent, useEffect } from 'react';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 
 export default function SignupPage() {
   const [name, setName] = useState('');
@@ -62,15 +55,15 @@ export default function SignupPage() {
   };
 
   return (
-    <Card className="w-full max-w-lg">
-      <CardHeader className="text-left">
-        <CardTitle className="text-2xl font-bold">Sign Up</CardTitle>
-        <CardDescription>
+    <div className="w-full max-w-lg">
+      <div className="text-left mb-6">
+        <h1 className="text-2xl font-bold">Sign Up</h1>
+        <p className="text-muted-foreground">
           Enter your information to create an account
-        </CardDescription>
-      </CardHeader>
+        </p>
+      </div>
       <form onSubmit={handleSubmit}>
-        <CardContent className="space-y-4">
+        <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="name">Username</Label>
@@ -148,8 +141,8 @@ export default function SignupPage() {
               onChange={(e) => setReferral(e.target.value)}
             />
           </div>
-        </CardContent>
-        <CardFooter className="flex flex-col gap-4">
+        </div>
+        <div className="flex flex-col gap-4 mt-6">
           <Button type="submit" className="w-full" disabled={loading}>
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Create an account
@@ -160,8 +153,8 @@ export default function SignupPage() {
               Sign in
             </Link>
           </div>
-        </CardFooter>
+        </div>
       </form>
-    </Card>
+    </div>
   );
 }
