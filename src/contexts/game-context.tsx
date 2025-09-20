@@ -3,8 +3,8 @@
 
 import { createContext, useState, useEffect, useCallback, ReactNode, useMemo } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import type { Boost as BoostType, Powerup as PowerupType, GameSession, UserPowerup } from '@/lib/types';
-import { runPrivacyAnalysis, getBoost, getPowerups } from '@/lib/actions';
+import type { Boost as BoostType, Powerup as PowerupType, GameSession, UserPowerup, UserBoost } from '@/lib/types';
+import { runPrivacyAnalysis, getBoost, getPowerup } from '@/lib/actions';
 import { db } from '@/lib/firebase';
 import { doc, setDoc, getDoc, updateDoc, deleteDoc, onSnapshot, runTransaction, arrayUnion } from 'firebase/firestore';
 
@@ -26,8 +26,8 @@ export interface GameContextType {
   handleTap: () => void;
   resetGame: () => Promise<void>;
   buyItem: (item: StoreItem) => Promise<boolean>;
-  activateBoost: (boostId: string) => Promise<void>;
-  activateExtraTime: (boostId: string) => Promise<void>;
+  activateBoost: (itemId: string) => Promise<void>;
+  activateExtraTime: (itemId: string) => Promise<void>;
 
   setIsStoreOpen: (isOpen: boolean) => void;
   setIsModalOpen: (isOpen: boolean) => void;
@@ -100,8 +100,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
         // Automatic Mining Logic
         let currentRate = BASE_MINING_RATE;
+
+        // Permanent Multiplier
+        const permMultiplierPowerup = user?.powerups.find(p => p.powerupId === 'perm-multiplier-1.5x');
+        if (permMultiplierPowerup) currentRate *= 1.5;
+
+        // Active Boost/Powerup Multiplier
         if (currentSession.activeBoost && now < currentSession.activeBoost.endTime) {
-          if (currentSession.activeBoost.type === 'score_multiplier') {
+          if (currentSession.activeBoost.type === 'score_multiplier' || currentSession.activeBoost.type === 'frenzy') {
             currentRate *= currentSession.activeBoost.value;
           }
         } else if (currentSession.activeBoost) {
@@ -228,17 +234,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
                 const existingPowerupIndex = newPowerups.findIndex(p => p.powerupId === powerupItem.id);
 
                 if (existingPowerupIndex > -1) {
-                    // It exists, check quantity
                     const existingPowerup = newPowerups[existingPowerupIndex];
-                    if (powerupItem.maxQuantity === 1) {
-                        throw "Power-up already owned.";
-                    }
-                     if ((existingPowerup.quantity || 0) >= powerupItem.maxQuantity) {
+                    if ((existingPowerup.quantity || 0) >= powerupItem.maxQuantity) {
                          throw `Max quantity of ${powerupItem.name} reached.`;
                     }
                     newPowerups[existingPowerupIndex].quantity = (existingPowerup.quantity || 0) + 1;
                 } else {
-                    // It's a new powerup for the user
                     newPowerups.push({
                         powerupId: powerupItem.id,
                         purchasedAt: new Date().toISOString(),
@@ -252,7 +253,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
                 });
 
             } else { // It's a boost
-                const newBoosts = [...(currentUser.boosts || [])];
+                const newBoosts: UserBoost[] = [...(currentUser.boosts || [])];
                 const existingBoostIndex = newBoosts.findIndex(b => b.boostId === item.id);
 
                 if (existingBoostIndex > -1) {
@@ -281,7 +282,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
   }, [user, addTransaction]);
 
- const useBoost = async (boostId: string) => {
+ const useItem = async (itemId: string) => {
     if (!user) return false;
     const userRef = doc(db, 'users', user.id);
     try {
@@ -289,74 +290,92 @@ export function GameProvider({ children }: { children: ReactNode }) {
             const userDoc = await transaction.get(userRef);
             if (!userDoc.exists()) throw "User does not exist.";
             const currentUser = userDoc.data() as any;
-            const newBoosts = [...currentUser.boosts];
-            const boostIndex = newBoosts.findIndex(b => b.boostId === boostId && b.quantity > 0);
-            if (boostIndex === -1) throw "Boost not available or out of stock.";
+
+            const boostIndex = currentUser.boosts.findIndex((b: UserBoost) => b.boostId === itemId && b.quantity > 0);
+            if (boostIndex > -1) {
+                const newBoosts = [...currentUser.boosts];
+                newBoosts[boostIndex].quantity -= 1;
+                const finalBoosts = newBoosts.filter(b => b.quantity > 0);
+                transaction.update(userRef, { boosts: finalBoosts });
+                return;
+            }
+
+            const powerupIndex = currentUser.powerups.findIndex((p: UserPowerup) => p.powerupId === itemId && (p.quantity || 0) > 0);
+            if (powerupIndex > -1) {
+                const newPowerups = [...currentUser.powerups];
+                newPowerups[powerupIndex].quantity = (newPowerups[powerupIndex].quantity || 1) - 1;
+                const finalPowerups = newPowerups.filter(p => p.quantity > 0);
+                transaction.update(userRef, { powerups: finalPowerups });
+                return;
+            }
             
-            newBoosts[boostIndex].quantity -= 1;
-            const finalBoosts = newBoosts.filter(b => b.quantity > 0);
-            transaction.update(userRef, { boosts: finalBoosts });
+            throw "Item not available or out of stock.";
         });
         return true;
     } catch (error) {
-        console.error("Failed to use boost:", error);
+        console.error("Failed to use item:", error);
         return false;
     }
  };
  
- const activateExtraTime = async (boostId: string) => {
+ const activateExtraTime = async (itemId: string) => {
     if (gameStatus !== 'idle' || !user) return;
     
-    const boostInfo = await getBoost(boostId);
-    if (!boostInfo || boostInfo.type !== 'extra_time') return;
+    let itemInfo: BoostType | PowerupType | null = await getBoost(itemId);
+    if (!itemInfo) itemInfo = await getPowerup(itemId);
     
-    const hasBoost = user.boosts.some(b => b.boostId === boostId && b.quantity > 0);
-    if (!hasBoost) return;
+    if (!itemInfo || itemInfo.type !== 'extra_time') return;
     
-    const consumed = await useBoost(boostId);
+    const consumed = await useItem(itemId);
     if(consumed) {
-        await startGame(boostInfo.value);
+        await startGame(itemInfo.value);
     }
  }
 
- const activateBoost = async (boostId: string) => {
-    if (gameStatus !== 'playing' || !user || !session || session.activeBoost) return;
+ const activateBoost = async (itemId: string) => {
+    if (gameStatus !== 'playing' || !user || !session) return;
+    if (session.activeBoost && itemId !== 'scoreBomb') return;
 
-    const boostInfo = await getBoost(boostId);
-    if (!boostInfo) {
-      console.error("Boost details not found");
+    let itemInfo: BoostType | PowerupType | null = await getBoost(itemId);
+    if (!itemInfo) itemInfo = await getPowerup(itemId);
+
+    if (!itemInfo) {
+      console.error("Item details not found");
       return;
     }
     
-    const hasBoost = user.boosts.some(b => b.boostId === boostId && b.quantity > 0);
-    if (!hasBoost) {
-      console.error("User does not have this boost");
-      return;
-    }
-    
-    const consumed = await useBoost(boostId);
+    const consumed = await useItem(itemId);
     if (!consumed) return;
     
     const sessionRef = doc(db, 'gameSessions', user.id);
     const now = Date.now();
 
     const activeBoostPayload = {
-      id: boostId,
-      type: boostInfo.type,
-      value: boostInfo.value,
-      endTime: 0, // set below
+      id: itemInfo.id,
+      name: itemInfo.name,
+      type: itemInfo.type,
+      value: itemInfo.value,
+      endTime: 0, 
     };
 
-    if (boostInfo.type === 'score_multiplier') {
-        activeBoostPayload.endTime = now + 5000; // 5 seconds duration
+    if (itemInfo.id === 'scoreBomb') {
+        const newScore = (session.score || 0) + itemInfo.value;
+        await updateDoc(sessionRef, { score: newScore });
+        return; // instant effect, no activeBoost needed
+    }
+
+    if (itemInfo.type === 'score_multiplier' || itemInfo.type === 'frenzy') {
+        const duration = itemInfo.id === 'missile' ? 3000 : 5000;
+        activeBoostPayload.endTime = now + duration;
         await updateDoc(sessionRef, { activeBoost: activeBoostPayload });
-    } else if (boostInfo.type === 'time_freeze') {
-        activeBoostPayload.endTime = now + (boostInfo.value * 1000);
+
+    } else if (itemInfo.type === 'time_freeze') {
+        activeBoostPayload.endTime = now + (itemInfo.value * 1000);
         // We need to read the current session to safely update the end time
         const currentSessionDoc = await getDoc(sessionRef);
         if (currentSessionDoc.exists()) {
           const currentSessionData = currentSessionDoc.data() as GameSession;
-          const newExpectedEndTime = currentSessionData.expectedEndTime + (boostInfo.value * 1000);
+          const newExpectedEndTime = currentSessionData.expectedEndTime + (itemInfo.value * 1000);
           await updateDoc(sessionRef, { 
               activeBoost: activeBoostPayload,
               expectedEndTime: newExpectedEndTime

@@ -5,7 +5,7 @@ import { GameEngine } from '@/components/game-engine';
 import { Leaderboard } from '@/components/leaderboard';
 import { Store } from '@/components/store';
 import { Separator } from '@/components/ui/separator';
-import { Bot, ShoppingCart, Rocket, Clock, Zap, Snowflake, Coins, MapPin, TrendingUp, BarChart, ArrowDownUp, Repeat, ShieldCheck } from 'lucide-react';
+import { Bot, ShoppingCart, Rocket, Clock, Zap, Snowflake, Coins, MapPin, TrendingUp, BarChart, ArrowDownUp, Repeat, ShieldCheck, Gift, Bomb } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -24,8 +24,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { BlogWidget } from '@/components/blog-widget';
 import { useGame } from '@/hooks/use-game';
 import { useAuth } from '@/hooks/use-auth';
-import { useState } from 'react';
-import { storeItems } from '@/lib/data';
+import { useState, useEffect } from 'react';
+import { getBoosts, getPowerups } from '@/lib/actions';
+import type { Boost, Powerup } from '@/lib/types';
 
 export default function Home() {
   const { user } = useAuth();
@@ -33,6 +34,15 @@ export default function Home() {
   const [isBotDialogOpen, setIsBotDialogOpen] = useState(false);
   const [isKycDialogOpen, setIsKycDialogOpen] = useState(false);
   const userLocation = useUserLocation();
+  const [allItems, setAllItems] = useState<(Boost | Powerup)[]>([]);
+
+   useEffect(() => {
+    async function fetchItems() {
+      const [boosts, powerups] = await Promise.all([getBoosts(), getPowerups()]);
+      setAllItems([...boosts, ...powerups]);
+    }
+    fetchItems();
+  }, []);
 
   const botOptions = [
     { name: "Actual grid", icon: BarChart },
@@ -57,7 +67,16 @@ export default function Home() {
       extra_time: Clock,
       time_freeze: Snowflake,
       mining_bot: Bot,
+      scoreBomb: Gift,
+      frenzy: Zap,
+      missile: Bomb,
+      rocket: Rocket,
   }
+
+  const ownedItems = [
+      ...(user?.boosts || []),
+      ...(user?.powerups.map(p => ({ boostId: p.powerupId, quantity: p.quantity })) || [])
+  ];
 
   return (
     <div className="flex flex-col min-h-[calc(100vh-4rem)] bg-background">
@@ -171,23 +190,23 @@ export default function Home() {
             <div className="w-full max-w-md flex flex-col gap-6">
                 <Leaderboard />
                 <div className="p-4 border rounded-lg">
-                    <h3 className="text-base font-semibold mb-1 flex items-center gap-2"><Rocket/> My Boosts</h3>
+                    <h3 className="text-base font-semibold mb-1 flex items-center gap-2"><Rocket/> My Inventory</h3>
                     <p className="text-xs text-muted-foreground mb-3">Activate boosts during a game.</p>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                       {user?.boosts && user.boosts.length > 0 ? (
-                           user.boosts.map(userBoost => {
-                               const boostInfo = storeItems.find(item => item.id === userBoost.boostId);
-                               if (!boostInfo) return null;
-                               const Icon = inventoryIcons[boostInfo.type];
+                       {ownedItems && ownedItems.length > 0 ? (
+                           ownedItems.map(userItem => {
+                               const itemInfo = allItems.find(item => item.id === userItem.boostId);
+                               if (!itemInfo || userItem.quantity <= 0) return null;
+                               const Icon = inventoryIcons[itemInfo.type] || inventoryIcons[itemInfo.id] || Zap;
                                return (
-                                   <div key={boostInfo.id} className="flex items-center gap-2 p-2 bg-muted rounded-md text-xs font-bold">
+                                   <div key={itemInfo.id} className="flex items-center gap-2 p-2 bg-muted rounded-md text-xs font-bold">
                                        {Icon && <Icon className="w-4 h-4" />}
-                                       <span>{boostInfo.name.split(' ')[0]} x {userBoost.quantity}</span>
+                                       <span>{itemInfo.name.split(' ')[0]} x {userItem.quantity}</span>
                                    </div>
                                )
                            })
                        ) : (
-                           <p className="text-xs text-muted-foreground col-span-full text-center py-4">No boosts yet. Visit the store!</p>
+                           <p className="text-xs text-muted-foreground col-span-full text-center py-4">No items yet. Visit the store!</p>
                        )}
                     </div>
                 </div>

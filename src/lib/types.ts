@@ -20,7 +20,7 @@ export type Boost = {
   name: string;
   description: string;
   cost: number;
-  type: 'score_multiplier' | 'extra_time' | 'time_freeze' | 'mining_bot';
+  type: 'score_multiplier' | 'extra_time' | 'time_freeze' | 'mining_bot' | 'scoreBomb' | 'frenzy';
   value: number; // e.g., 2 for 2x multiplier, 10 for 10 extra seconds
   status: 'available' | 'sold';
   free?: boolean;
@@ -32,7 +32,7 @@ export type Powerup = {
   name: string;
   description: string;
   cost: number;
-  type: 'permanent_multiplier' | 'bot_upgrade' | 'score_multiplier' | 'extra_time' | 'time_freeze';
+  type: 'permanent_multiplier' | 'bot_upgrade' | 'score_multiplier' | 'extra_time' | 'time_freeze' | 'frenzy' | 'scoreBomb';
   value: number;
   status: 'available' | 'sold';
   maxQuantity: number;
@@ -48,8 +48,8 @@ export type UserBoost = {
 export type UserPowerup = {
   powerupId: string;
   purchasedAt: string;
-  quantity?: number;
-}
+  quantity: number;
+};
 
 export type Transaction = {
   id: string;
@@ -97,7 +97,8 @@ export interface GameSession {
   status: 'playing' | 'ended';
   activeBoost: {
     id: string;
-    type: Boost['type'];
+    name: string;
+    type: Boost['type'] | Powerup['type'];
     value: number;
     endTime: number; // timestamp
   } | null;

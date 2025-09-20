@@ -148,3 +148,17 @@ export async function getBoost(boostId: string): Promise<Boost | null> {
     return null;
   }
 }
+
+export async function getPowerup(powerupId: string): Promise<Powerup | null> {
+  try {
+    const powerupRef = doc(db, 'powerups', powerupId);
+    const docSnap = await getDoc(powerupRef);
+    if (docSnap.exists()) {
+      return docSnap.data() as Powerup;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error fetching powerup:', error);
+    return null;
+  }
+}

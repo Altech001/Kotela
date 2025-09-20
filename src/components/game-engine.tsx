@@ -1,8 +1,8 @@
 
 "use client";
 
-import { useMemo } from "react";
-import { Pickaxe, Repeat, AlertTriangle, TimerIcon, Rocket, Snowflake, Zap, Clock } from "lucide-react";
+import { useMemo, useEffect, useState } from "react";
+import { Pickaxe, Repeat, AlertTriangle, TimerIcon, Rocket, Snowflake, Zap, Clock, Gift, Bomb } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useGame } from '@/hooks/use-game';
 import { useAuth } from '@/hooks/use-auth';
@@ -16,7 +16,24 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
-import { storeItems } from "@/lib/data";
+import { getBoosts, getPowerups } from "@/lib/actions";
+import type { Boost, Powerup } from "@/lib/types";
+
+type GameItem = (Boost | Powerup) & { ownedQuantity: number };
+
+const iconMap: { [key: string]: React.ElementType } = {
+  score_multiplier: Zap,
+  extra_time: Clock,
+  time_freeze: Snowflake,
+  mining_bot: Rocket,
+  permanent_multiplier: Zap,
+  bot_upgrade: Rocket,
+  rocket: Rocket,
+  missile: Bomb,
+  frenzy: Zap,
+  scoreBomb: Gift,
+};
+
 
 export function GameEngine() {
   const { user } = useAuth();
@@ -31,6 +48,16 @@ export function GameEngine() {
     activateBoost,
     activateExtraTime,
   } = useGame();
+
+  const [allItems, setAllItems] = useState<(Boost | Powerup)[]>([]);
+
+  useEffect(() => {
+    async function fetchItems() {
+      const [boosts, powerups] = await Promise.all([getBoosts(), getPowerups()]);
+      setAllItems([...boosts, ...powerups]);
+    }
+    fetchItems();
+  }, []);
 
   const CIRCLE_RADIUS = 100;
   const CIRCLE_CIRCUMFERENCE = 2 * Math.PI * CIRCLE_RADIUS;
@@ -66,6 +93,7 @@ export function GameEngine() {
     switch (activeBoostInfo.type) {
       case 'score_multiplier': return 'text-yellow-500';
       case 'time_freeze': return 'text-cyan-400';
+      case 'frenzy': return 'text-purple-500';
       default: return 'text-foreground';
     }
   }, [activeBoostInfo]);
@@ -75,14 +103,9 @@ export function GameEngine() {
   
     let icon = null;
     let text = '';
-  
-    if (activeBoostInfo.type === 'score_multiplier') {
-      icon = <Zap className="h-4 w-4" />;
-      text = `${activeBoostInfo.value}x Boost! (${activeBoostInfo.timeLeft}s)`;
-    } else if (activeBoostInfo.type === 'time_freeze') {
-      icon = <Snowflake className="h-4 w-4" />;
-      text = `Time Frozen! (${activeBoostInfo.timeLeft}s)`;
-    }
+    const IconCmp = iconMap[activeBoostInfo.type] || Zap;
+    icon = <IconCmp className="h-4 w-4" />
+    text = `${activeBoostInfo.name} active! (${activeBoostInfo.timeLeft}s)`;
   
     return (
       <span className={cn("absolute -bottom-6 flex items-center gap-1 font-bold text-xs", boostTextColor)}>
@@ -92,21 +115,25 @@ export function GameEngine() {
     );
   };
   
-  const getBoostMeta = (boostType: string) => {
-    const boostMeta = storeItems.find(i => i.type === boostType);
-    if (!boostMeta) return { has: false, quantity: 0, id: '' };
-    const userBoost = user?.boosts.find(b => b.boostId === boostMeta.id);
-    return {
-        has: !!userBoost && userBoost.quantity > 0,
-        quantity: userBoost?.quantity || 0,
-        id: boostMeta.id
-    };
-  };
+  const userOwnedItems: GameItem[] = useMemo(() => {
+    if (!user || allItems.length === 0) return [];
+    
+    const ownedBoosts = user.boosts.map(userBoost => {
+        const item = allItems.find(i => i.id === userBoost.boostId);
+        return item ? { ...item, ownedQuantity: userBoost.quantity } : null;
+    }).filter(Boolean) as GameItem[];
 
-  const multiplierBoost = getBoostMeta('score_multiplier');
-  const freezeBoost = getBoostMeta('time_freeze');
-  const extraTime10Boost = user?.boosts.find(b => b.boostId === 'extra-time-10');
-  const extraTime20Boost = user?.boosts.find(b => b.boostId === 'extra-time-20');
+    const ownedPowerups = user.powerups.map(userPowerup => {
+        const item = allItems.find(i => i.id === userPowerup.powerupId);
+        return item ? { ...item, ownedQuantity: userPowerup.quantity || 0 } : null;
+    }).filter(Boolean) as GameItem[];
+    
+    return [...ownedBoosts, ...ownedPowerups].filter(item => item.ownedQuantity > 0);
+  }, [user, allItems]);
+
+
+  const extraTimeItems = userOwnedItems.filter(item => item.type === 'extra_time');
+  const inGameItems = userOwnedItems.filter(item => item.type !== 'extra_time' && item.type !== 'mining_bot' && item.type !== 'bot_upgrade' && item.type !== 'permanent_multiplier' );
 
 
   return (
@@ -170,22 +197,23 @@ export function GameEngine() {
       <div className="flex flex-wrap items-center justify-center gap-2">
         {gameStatus === 'idle' && (
           <>
-            {extraTime10Boost && extraTime10Boost.quantity > 0 && (
-              <Button onClick={() => activateExtraTime(extraTime10Boost.boostId)} variant="outline" size="sm">
-                <Clock /> +10s ({extraTime10Boost.quantity})
+            {extraTimeItems.map(item => (
+              <Button key={item.id} onClick={() => activateExtraTime(item.id)} variant="outline" size="sm">
+                <Clock /> +{item.value}s ({item.ownedQuantity})
               </Button>
-            )}
-            {extraTime20Boost && extraTime20Boost.quantity > 0 && (
-              <Button onClick={() => activateExtraTime(extraTime20Boost.boostId)} variant="outline" size="sm">
-                <Clock /> +20s ({extraTime20Boost.quantity})
-              </Button>
-            )}
+            ))}
           </>
         )}
         {gameStatus === 'playing' && (
           <>
-            <Button onClick={() => activateBoost(multiplierBoost.id)} disabled={!multiplierBoost.has || !!activeBoostInfo} variant="outline" size="sm"><Zap />({multiplierBoost.quantity})</Button>
-            <Button onClick={() => activateBoost(freezeBoost.id)} disabled={!freezeBoost.has || !!activeBoostInfo} variant="outline" size="sm" className="text-cyan-400 border-cyan-400 hover:bg-cyan-400/10 hover:text-cyan-300"><Snowflake />({freezeBoost.quantity})</Button>
+            {inGameItems.map(item => {
+              const Icon = iconMap[item.id] || Zap;
+              return (
+                  <Button key={item.id} onClick={() => activateBoost(item.id)} disabled={!!activeBoostInfo && item.type !== 'scoreBomb'} variant="outline" size="sm">
+                    <Icon />({item.ownedQuantity})
+                  </Button>
+              )
+            })}
           </>
         )}
         {gameStatus === "ended" && (
@@ -217,3 +245,4 @@ export function GameEngine() {
     </div>
   );
 }
+
