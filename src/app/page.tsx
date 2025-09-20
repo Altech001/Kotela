@@ -3,6 +3,7 @@
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import { Loader2 } from 'lucide-react';
 
 export default function RootPage() {
   const { user, loading } = useAuth();
@@ -20,7 +21,7 @@ export default function RootPage() {
 
   return (
     <div className="flex h-screen items-center justify-center">
-      <p>Loading...</p>
+      <Loader2 className="h-12 w-12 animate-spin" />
     </div>
   );
 }

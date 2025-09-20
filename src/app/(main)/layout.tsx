@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 import { AnnouncementBanner } from '@/components/announcement-banner';
+import { Loader2 } from 'lucide-react';
 
 const noNavRoutes = ['/profile/verify'];
 
@@ -26,7 +27,11 @@ export default function MainLayout({
   }, [user, loading, router]);
   
   if (loading || !user) {
-     return <div className="flex h-screen items-center justify-center">Loading...</div>
+     return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-12 w-12 animate-spin" />
+      </div>
+     )
   }
   
   const showNav = !noNavRoutes.includes(pathname);
