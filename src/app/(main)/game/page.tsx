@@ -217,8 +217,8 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="relative flex-grow">
-        <div className="w-full flex flex-col lg:flex-row items-start justify-center gap-8 lg:gap-16 pt-8">
+      <main className="relative flex-grow pt-8">
+        <div className="w-full flex flex-col lg:flex-row items-start justify-center gap-8 lg:gap-16">
           <div className="relative">
             <GameEngine />
           </div>
