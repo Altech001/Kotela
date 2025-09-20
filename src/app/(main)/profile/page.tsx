@@ -24,6 +24,9 @@ import Link from 'next/link';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import type { User as UserType } from '@/lib/types';
+import { getReferredUsers } from '@/lib/actions';
+
 
 const networks = [
     { id: 'eth', name: 'Ethereum' },
@@ -32,23 +35,24 @@ const networks = [
     { id: 'bnb', name: 'BNB Smart Chain' },
 ];
 
-const referralData = [
-  { user: 'CryptoKing', avatar: 'https://picsum.photos/seed/ref1/40/40', dateJoined: '2024-12-10', profit: 150.75 },
-  { user: 'SatoshiJr', avatar: 'https://picsum.photos/seed/ref2/40/40', dateJoined: '2024-11-25', profit: 75.50 },
-  { user: 'CoinDuchess', avatar: 'https://picsum.photos/seed/ref3/40/40', dateJoined: '2024-11-18', profit: 225.00 },
-  { user: 'MinerMike', avatar: 'https://picsum.photos/seed/ref4/40/40', dateJoined: '2024-10-30', profit: 50.25 },
-  { user: 'HodlHermit', avatar: 'https://picsum.photos/seed/ref5/40/40', dateJoined: '2024-10-15', profit: 300.00 },
-  { user: 'DigitalNomad', avatar: 'https://picsum.photos/seed/ref6/40/40', dateJoined: '2024-10-01', profit: 120.00 },
-  { user: 'ChainSurfer', avatar: 'https://picsum.photos/seed/ref7/40/40', dateJoined: '2024-09-22', profit: 88.88 },
-  { user: 'AltcoinAlice', avatar: 'https://picsum.photos/seed/ref8/40/40', dateJoined: '2024-09-15', profit: 450.50 },
-];
-
-const referralLink = "https://kotela.com/join/user123";
-
-const ReferralDialogContent = () => {
+const ReferralDialogContent = ({ user }: { user: UserType | null }) => {
     const { toast } = useToast();
     const [currentPage, setCurrentPage] = useState(0);
+    const [referredUsers, setReferredUsers] = useState<UserType[]>([]);
+    const [loading, setLoading] = useState(true);
     const itemsPerPage = 5;
+
+    const referralLink = user ? `https://kotela.com/join/${user.referralCode}` : "";
+
+    useEffect(() => {
+        if (user) {
+            setLoading(true);
+            getReferredUsers(user.id).then(users => {
+                setReferredUsers(users);
+                setLoading(false);
+            });
+        }
+    }, [user]);
 
     const handleCopy = (text: string, type: string) => {
         navigator.clipboard.writeText(text);
@@ -58,8 +62,8 @@ const ReferralDialogContent = () => {
         });
     };
 
-    const paginatedReferrals = referralData.slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage);
-    const totalPages = Math.ceil(referralData.length / itemsPerPage);
+    const paginatedReferrals = referredUsers.slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage);
+    const totalPages = Math.ceil(referredUsers.length / itemsPerPage);
 
     return (
         <DialogContent>
@@ -82,24 +86,26 @@ const ReferralDialogContent = () => {
                 <Separator />
                 <div className="grid grid-cols-[1fr_auto_auto] items-center gap-4 px-2 text-sm font-semibold text-muted-foreground">
                     <span>User</span>
-                    <span>Date Joined</span>
                     <span className="text-right">Profit (KTC)</span>
                 </div>
                 <ScrollArea className="h-60 pr-4">
                     <div className="space-y-4">
-                    {paginatedReferrals.map((ref, index) => (
-                        <div key={index} className="grid grid-cols-[1fr_auto_auto] items-center gap-4 px-2">
-                            <div className="flex items-center gap-3">
-                                <Avatar className="h-8 w-8">
-                                    <AvatarImage src={ref.avatar} alt={ref.user} />
-                                    <AvatarFallback>{ref.user.substring(0, 2)}</AvatarFallback>
-                                </Avatar>
-                                <span className="font-medium text-sm">{ref.user}</span>
+                    {loading ? <p>Loading...</p> : paginatedReferrals.length > 0 ? (
+                        paginatedReferrals.map((ref, index) => (
+                            <div key={index} className="grid grid-cols-[1fr_auto] items-center gap-4 px-2">
+                                <div className="flex items-center gap-3">
+                                    <Avatar className="h-8 w-8">
+                                        <AvatarImage src={ref.avatarUrl} alt={ref.name} />
+                                        <AvatarFallback>{ref.name.substring(0, 2)}</AvatarFallback>
+                                    </Avatar>
+                                    <span className="font-medium text-sm">{ref.name}</span>
+                                </div>
+                                <span className="text-sm font-semibold text-green-500 text-right">250.00</span>
                             </div>
-                            <span className="text-sm text-muted-foreground">{ref.dateJoined}</span>
-                            <span className="text-sm font-semibold text-green-500 text-right">{ref.profit.toFixed(2)}</span>
-                        </div>
-                    ))}
+                        ))
+                    ) : (
+                        <p className="text-center text-sm text-muted-foreground">No referred users yet.</p>
+                    )}
                     </div>
                 </ScrollArea>
             </div>
@@ -362,7 +368,7 @@ export default function ProfilePage() {
                             <ArrowRight className="h-4 w-4 text-muted-foreground" />
                         </div>
                     </DialogTrigger>
-                    <ReferralDialogContent />
+                    <ReferralDialogContent user={user} />
                 </Dialog>
                 <div className="p-4 flex items-center justify-between">
                     <div className="flex items-center gap-3">

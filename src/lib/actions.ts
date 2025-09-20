@@ -208,3 +208,19 @@ export async function markNotificationsAsRead(userId: string, notificationIds: s
         console.error("Error marking notifications as read:", error);
     }
 }
+
+export async function getReferredUsers(referrerId: string): Promise<User[]> {
+    try {
+        const usersRef = collection(db, 'users');
+        const q = query(usersRef, where('referredBy', '==', referrerId));
+        const querySnapshot = await getDocs(q);
+        const users: User[] = [];
+        querySnapshot.forEach((doc) => {
+            users.push(doc.data() as User);
+        });
+        return users;
+    } catch (error) {
+        console.error('Error fetching referred users:', error);
+        return [];
+    }
+}
