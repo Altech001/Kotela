@@ -216,7 +216,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setIsModalOpen(false);
   };
 
-  const buyItem = useCallback(async (item: StoreItem): Promise<boolean> => {
+ const buyItem = useCallback(async (item: StoreItem): Promise<boolean> => {
     if (!user) return false;
 
     const isPowerup = 'maxQuantity' in item;
@@ -300,25 +300,23 @@ export function GameProvider({ children }: { children: ReactNode }) {
         await runTransaction(db, async (transaction) => {
             const userDoc = await transaction.get(userRef);
             if (!userDoc.exists()) throw "User does not exist.";
+            
             const currentUser = userDoc.data() as any;
+            const newBoosts: UserBoost[] = [...currentUser.boosts];
+            const newPowerups: UserPowerup[] = [...currentUser.powerups];
 
-            const boostIndex = currentUser.boosts.findIndex((b: UserBoost) => b.boostId === itemId && b.quantity > 0);
+            const boostIndex = newBoosts.findIndex((b: UserBoost) => b.boostId === itemId && b.quantity > 0);
+            const powerupIndex = newPowerups.findIndex((p: UserPowerup) => p.powerupId === itemId && (p.quantity || 0) > 0);
+
             if (boostIndex > -1) {
-                const newBoosts = [...currentUser.boosts];
                 newBoosts[boostIndex].quantity -= 1;
                 transaction.update(userRef, { boosts: newBoosts });
-                return;
-            }
-
-            const powerupIndex = currentUser.powerups.findIndex((p: UserPowerup) => p.powerupId === itemId && (p.quantity || 0) > 0);
-            if (powerupIndex > -1) {
-                const newPowerups = [...currentUser.powerups];
+            } else if (powerupIndex > -1) {
                 newPowerups[powerupIndex].quantity = (newPowerups[powerupIndex].quantity || 1) - 1;
                 transaction.update(userRef, { powerups: newPowerups });
-                return;
+            } else {
+                throw "Item not available or out of stock.";
             }
-            
-            throw "Item not available or out of stock.";
         });
         return true;
     } catch (error) {
@@ -333,7 +331,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     let itemInfo: BoostType | PowerupType | null = await getPowerup(itemId);
     if (!itemInfo) itemInfo = await getBoost(itemId);
     
-    if (!itemInfo || itemInfo.type !== 'extra_time') return;
+    if (!itemInfo || (itemInfo.type !== 'extra_time' && itemInfo.id !== 'extraTime')) return;
     
     const consumed = await useItem(itemId);
     if(consumed) {
@@ -359,7 +357,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const now = Date.now();
 
     // Instant effect items
-    if (itemInfo.type === 'scoreBomb') {
+    if (itemInfo.type === 'scoreBomb' || itemInfo.id === 'scoreBomb') {
         const newScore = (session.score || 0) + itemInfo.value;
         setSession(s => s ? {...s, score: newScore} : null); // Update local state immediately
         return;
@@ -375,16 +373,16 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
     let durationMs = 0;
     if (itemInfo.id === 'missile') durationMs = 3000;
-    else if (itemInfo.id === 'rocket') durationMs = 5000;
+    else if (itemInfo.id === 'rocket' || itemInfo.id === 'multiplier-2x' || itemInfo.id === 'multiplier-3x') durationMs = 5000;
     else if (itemInfo.id === 'frenzy') durationMs = 3000;
-    else if (itemInfo.type === 'time_freeze') durationMs = itemInfo.value * 1000;
+    else if (itemInfo.type === 'time_freeze' || itemInfo.id === 'freezeTime' || itemInfo.id === 'time-freeze-5') durationMs = itemInfo.value * 1000;
     else if (itemInfo.type === 'score_multiplier') durationMs = 5000; // Default for other multipliers
 
     if (durationMs > 0) {
         activeBoostPayload.endTime = now + durationMs;
     }
 
-    if (itemInfo.type === 'time_freeze') {
+    if (itemInfo.type === 'time_freeze' || itemInfo.id === 'freezeTime' || itemInfo.id === 'time-freeze-5') {
         setSession(s => {
             if (!s) return null;
             const newExpectedEndTime = s.expectedEndTime + (itemInfo.value * 1000);
@@ -413,3 +411,5 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
 }
+
+    
