@@ -109,7 +109,7 @@ export default function Home() {
     <div className="flex flex-col min-h-[calc(100vh-4rem)] bg-background">
       <header className="py-4">
         <div className="container mx-auto flex w-full flex-col items-start justify-between gap-4">
-          <div className="w-full flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="w-full flex flex-row items-center justify-between gap-4">
             <div>
               <h1 className="text-2xl font-bold tracking-tight text-primary font-headline">
                 Mine
@@ -127,8 +127,8 @@ export default function Home() {
             </div>
              <div className="flex items-center gap-2">
                 <Button variant="secondary" className="shadow-lg">
-                    <Gift className="mr-2 h-4 w-4" />
-                    Bonus Rewards
+                    <Gift className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Bonus Rewards</span>
                 </Button>
             </div>
           </div>
