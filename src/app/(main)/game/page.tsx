@@ -67,7 +67,7 @@ export default function Home() {
   }
   
   const ownedItems = useMemo(() => {
-    const allItems = new Map<string, { name: string; type: string; quantity: number }>();
+    const allItems = new Map<string, { id: string; name: string; type: string; quantity: number }>();
 
     // Process bots from user.boosts
     (user?.boosts || []).forEach(bot => {
@@ -77,7 +77,8 @@ export default function Home() {
         existing.quantity += 1;
       } else {
         allItems.set(id, {
-          name: 'Bot', // Or fetch bot name if available
+          id: bot.instanceId,
+          name: bot.name, 
           type: 'mining_bot',
           quantity: 1
         });
@@ -92,6 +93,7 @@ export default function Home() {
         existing.quantity += 1;
       } else {
         allItems.set(id, {
+          id: item.id,
           name: item.name,
           type: item.type,
           quantity: 1
@@ -99,7 +101,7 @@ export default function Home() {
       }
     });
     
-    return Array.from(allItems.entries()).map(([id, data]) => ({ id, ...data }));
+    return Array.from(allItems.values());
   }, [user?.boosts, inventory]);
 
 
@@ -205,8 +207,8 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="relative flex-grow flex flex-col items-center justify-center">
-        <div className="w-full flex flex-col lg:flex-row items-center lg:items-start justify-center gap-8 lg:gap-16">
+      <main className="relative flex-grow">
+        <div className="w-full flex flex-col lg:flex-row items-center lg:items-start justify-center gap-8 lg:gap-16 pt-8">
           <div className="relative">
             <GameEngine />
           </div>
