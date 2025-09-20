@@ -93,7 +93,7 @@ export default function SettingsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPhoneVerifyOpen, setIsPhoneVerifyOpen] = useState(false);
   const [mobileAccounts, setMobileAccounts] = useState<MobileMoneyAccount[]>([]);
-  const [dailyWithdrawals, setDailyWithdrawals = useState<Transaction[]>([]);
+  const [dailyWithdrawals, setDailyWithdrawals] = useState<Transaction[]>([]);
   const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
   const [isCodeSent, setIsCodeSent] = useState(false);
 
