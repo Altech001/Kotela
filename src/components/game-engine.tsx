@@ -194,7 +194,7 @@ export function GameEngine() {
                 const Icon = iconMap[item.id] || Clock;
                 const ownedQuantity = getCountOfItem(item.id);
                 return (
-                  <Button key={item.id} onClick={() => activateExtraTime(item.id)} variant="outline" size="sm" disabled={ownedQuantity <= 0}>
+                  <Button key={`${item.type}-${item.id}`} onClick={() => activateExtraTime(item.id)} variant="outline" size="sm" disabled={ownedQuantity <= 0}>
                     <Icon /> +{item.value}s ({ownedQuantity})
                   </Button>
                 )
@@ -208,7 +208,7 @@ export function GameEngine() {
               const ownedQuantity = getCountOfItem(item.id);
               const isDisabled = (!!activeBoostInfo && item.type !== 'scoreBomb') || ownedQuantity <= 0;
               return (
-                  <Button key={item.id} onClick={() => activateBoost(item.id)} disabled={isDisabled} variant="outline" size="sm">
+                  <Button key={`${item.type}-${item.id}`} onClick={() => activateBoost(item.id)} disabled={isDisabled} variant="outline" size="sm">
                     <Icon />({ownedQuantity})
                   </Button>
               )
