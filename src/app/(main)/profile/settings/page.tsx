@@ -36,14 +36,13 @@ import {
 } from '@/components/ui/breadcrumb';
 import {
   ChevronRight,
-  User,
   ShieldCheck,
   Phone,
   Trash2,
   PlusCircle,
   Banknote,
   Loader2,
-  Save,
+  Palette,
 } from 'lucide-react';
 import {
   Dialog,
@@ -65,6 +64,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { format } from 'date-fns';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ThemeToggle } from '@/components/layout/theme-toggle';
 
 const profileFormSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
@@ -293,6 +293,25 @@ export default function SettingsPage() {
             </CardFooter>
           </form>
         </Form>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Appearance</CardTitle>
+          <CardDescription>Customize the look and feel of the app.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="p-4 border rounded-lg flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Palette className="text-muted-foreground" />
+              <div>
+                <p className="font-semibold">Dark Mode</p>
+                <p className="text-sm text-muted-foreground">Toggle between light and dark themes.</p>
+              </div>
+            </div>
+            <ThemeToggle />
+          </div>
+        </CardContent>
       </Card>
       
       <Card>
