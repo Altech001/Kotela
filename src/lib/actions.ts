@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -474,13 +473,13 @@ export async function createOrUpdateAdvertiser(profile: Omit<AdvertiserProfile, 
     const listingRef = doc(collection(db, 'p2pListings'));
     const userRef = doc(db, 'users', profile.userId);
 
-    const newProfile: Omit<AdvertiserProfile, 'createdAt'> & { createdAt: any } = {
+    const newProfile: AdvertiserProfile = {
         ...profile,
         orders: 0,
         completion: 100,
         rating: 5,
         avgReleaseTime: 5,
-        createdAt: serverTimestamp(),
+        createdAt: new Date().toISOString(),
     };
     
     const newListing = {
@@ -584,6 +583,3 @@ export async function getActiveP2PListings(): Promise<EnrichedP2PListing[]> {
 
     return enrichedListings.sort((a,b) => b.price - a.price);
 }
-
-
-
