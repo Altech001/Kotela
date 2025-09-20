@@ -92,9 +92,10 @@ export function GameEngine() {
 
   const boostTextColor = useMemo(() => {
     if (!activeBoostInfo) return 'text-foreground';
-    switch (activeBoostInfo.type) {
-      case 'score_multiplier': return 'text-yellow-500';
-      case 'time_freeze': return 'text-cyan-400';
+    switch (activeBoostInfo.id) {
+      case 'rocket': return 'text-yellow-500';
+      case 'missile': return 'text-red-500';
+      case 'freezeTime': return 'text-cyan-400';
       case 'frenzy': return 'text-purple-500';
       default: return 'text-foreground';
     }

@@ -100,7 +100,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         // Check for active boost/power-up and apply its effect
         if (currentSession.activeBoost && now < currentSession.activeBoost.endTime) {
             const boostType = currentSession.activeBoost.type;
-            if (boostType === 'score_multiplier' || boostType === 'frenzy') {
+            if (boostType === 'score_multiplier') {
                 currentRate *= currentSession.activeBoost.value;
             }
         } else if (currentSession.activeBoost) {
@@ -238,10 +238,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
                  if (existingPowerupIndex > -1) {
                     const existingPowerup = newPowerups[existingPowerupIndex];
-                     if (powerupItem.maxQuantity === 1) {
-                         throw `Already owned.`;
-                    }
-                    if ((existingPowerup.quantity || 0) >= powerupItem.maxQuantity) {
+                     if ((existingPowerup.quantity || 0) >= powerupItem.maxQuantity) {
                          throw `Max quantity of ${powerupItem.name} reached.`;
                     }
                     newPowerups[existingPowerupIndex].quantity = (existingPowerup.quantity || 0) + 1;
@@ -336,7 +333,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     let itemInfo: BoostType | PowerupType | null = await getPowerup(itemId);
     if (!itemInfo) itemInfo = await getBoost(itemId);
     
-    if (!itemInfo || (itemInfo.type !== 'extra_time' && itemInfo.id !== 'extraTime')) return;
+    if (!itemInfo || itemInfo.type !== 'extra_time') return;
     
     const consumed = await useItem(itemId);
     if(consumed) {
@@ -362,7 +359,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const now = Date.now();
 
     // Instant effect items
-    if (itemInfo.id === 'scoreBomb') {
+    if (itemInfo.type === 'scoreBomb') {
         const newScore = (session.score || 0) + itemInfo.value;
         setSession(s => s ? {...s, score: newScore} : null); // Update local state immediately
         return;
@@ -380,14 +377,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (itemInfo.id === 'missile') durationMs = 3000;
     else if (itemInfo.id === 'rocket') durationMs = 5000;
     else if (itemInfo.id === 'frenzy') durationMs = 3000;
-    else if (itemInfo.id === 'time-freeze-5' || itemInfo.id === 'freezeTime') durationMs = itemInfo.value * 1000;
+    else if (itemInfo.type === 'time_freeze') durationMs = itemInfo.value * 1000;
     else if (itemInfo.type === 'score_multiplier') durationMs = 5000; // Default for other multipliers
 
     if (durationMs > 0) {
         activeBoostPayload.endTime = now + durationMs;
     }
 
-    if (itemInfo.type === 'time_freeze' || itemInfo.id === 'freezeTime') {
+    if (itemInfo.type === 'time_freeze') {
         setSession(s => {
             if (!s) return null;
             const newExpectedEndTime = s.expectedEndTime + (itemInfo.value * 1000);
