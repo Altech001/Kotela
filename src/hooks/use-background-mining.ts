@@ -73,6 +73,19 @@ export function useBackgroundMining() {
                   transactions: arrayUnion(newTransaction)
                 });
               });
+
+              // Generate summary and send notification
+              const summaryResult = await backgroundMiningSummary({
+                  startTime: new Date(startTime).toISOString(),
+                  endTime: new Date(now).toISOString(),
+                  ktcMined: ktcMined
+              });
+
+              await addNotification(user.id, {
+                  title: "Background Mining Report",
+                  description: summaryResult.summary,
+              });
+
             } catch (e) {
               console.error("Failed to update KTC from background mining", e)
             }
