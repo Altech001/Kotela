@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 import { getBoosts, getPowerups } from "@/lib/actions";
 import type { Boost, Powerup } from "@/lib/types";
 
-type GameItem = (Boost | Powerup) & { ownedQuantity: number };
+type GameItem = (Boost | Powerup) & { ownedQuantity: number; itemType: 'boost' | 'powerup' };
 
 const iconMap: { [key: string]: React.ElementType } = {
   score_multiplier: Zap,
@@ -122,8 +122,10 @@ export function GameEngine() {
       .filter(item => item.type !== 'mining_bot' && item.type !== 'bot_upgrade' && item.type !== 'permanent_multiplier')
       .map(item => {
         let ownedQuantity = 0;
+        let itemType: 'boost' | 'powerup' = 'boost';
         if (user) {
           if ('maxQuantity' in item) { // It's a Powerup
+            itemType = 'powerup';
             const ownedPowerup = user.powerups.find(p => p.powerupId === item.id);
             ownedQuantity = ownedPowerup?.quantity || 0;
           } else { // It's a Boost
@@ -131,7 +133,7 @@ export function GameEngine() {
             ownedQuantity = ownedBoost?.quantity || 0;
           }
         }
-        return { ...item, ownedQuantity };
+        return { ...item, ownedQuantity, itemType };
       });
   }, [user, allItems]);
 
@@ -204,7 +206,7 @@ export function GameEngine() {
             {extraTimeItems.map(item => {
                 const Icon = iconMap[item.id] || Clock;
                 return (
-                  <Button key={item.id} onClick={() => activateExtraTime(item.id)} variant="outline" size="sm" disabled={item.ownedQuantity <= 0}>
+                  <Button key={`${item.itemType}-${item.id}`} onClick={() => activateExtraTime(item.id)} variant="outline" size="sm" disabled={item.ownedQuantity <= 0}>
                     <Icon /> +{item.value}s ({item.ownedQuantity})
                   </Button>
                 )
@@ -217,7 +219,7 @@ export function GameEngine() {
               const Icon = iconMap[item.id] || Zap;
               const isDisabled = (!!activeBoostInfo && item.type !== 'scoreBomb') || item.ownedQuantity <= 0;
               return (
-                  <Button key={item.id} onClick={() => activateBoost(item.id)} disabled={isDisabled} variant="outline" size="sm">
+                  <Button key={`${item.itemType}-${item.id}`} onClick={() => activateBoost(item.id)} disabled={isDisabled} variant="outline" size="sm">
                     <Icon />({item.ownedQuantity})
                   </Button>
               )
