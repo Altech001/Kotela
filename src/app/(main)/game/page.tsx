@@ -208,7 +208,7 @@ export default function Home() {
       </header>
 
       <main className="relative flex-grow">
-        <div className="w-full flex flex-col lg:flex-row items-center lg:items-start justify-center gap-8 lg:gap-16 pt-8">
+        <div className="w-full flex flex-col lg:flex-row items-start justify-center gap-8 lg:gap-16 pt-8">
           <div className="relative">
             <GameEngine />
           </div>
@@ -242,6 +242,12 @@ export default function Home() {
                 <BlogWidget limit={3} showViewAll={true} />
             </div>
           </div>
+        </div>
+        <div className="fixed bottom-20 right-4 z-50 md:bottom-8">
+            <Button variant="secondary" className="shadow-lg">
+                <Gift className="mr-2 h-4 w-4" />
+                Bonus Rewards
+            </Button>
         </div>
       </main>
 
