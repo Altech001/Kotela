@@ -1,5 +1,4 @@
 
-
 export type Wallet = {
   id: string;
   network: string;
@@ -179,6 +178,9 @@ export type BonusGame = {
     description: string;
     icon: string; // SVG string
     order: number;
+    cooldownMinutes?: number;
+    durationMinutes?: number;
+    availableTimestamp?: number;
 };
 
 export type Video = {

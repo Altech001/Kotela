@@ -2,7 +2,7 @@
 'use server';
 
 import { db } from '@/lib/firebase';
-import { collection, getDocs, orderBy, query, addDoc, serverTimestamp, where, doc, getDoc, writeBatch, deleteDoc, setDoc } from 'firebase/firestore';
+import { collection, getDocs, orderBy, query, addDoc, serverTimestamp, where, doc, getDoc, writeBatch, deleteDoc, setDoc, arrayUnion } from 'firebase/firestore';
 import type { User, Comment, Boost, Powerup, Notification, MobileMoneyAccount, Transaction, Announcement, BonusGame, Video } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import { startOfDay, endOfDay } from 'date-fns';
@@ -305,16 +305,21 @@ export async function getVideos(): Promise<Video[]> {
 
 async function seedBonusGames() {
     const batch = writeBatch(db);
-    const games: BonusGame[] = [
-        { id: 'puzzle-game', name: 'Puzzle Game', description: 'Solve an AI-generated puzzle to win a prize!', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19.43 12.03c.25.82.25 1.71 0 2.54l-1.73 4.41a2 2 0 0 1-3.46.35l-1.73-4.41a2.43 2.43 0 0 0-2.54 0l-1.73 4.41a2 2 0 0 1-3.46-.35l-1.73-4.41a2.43 2.43 0 0 0 0-2.54l1.73-4.41a2 2 0 0 1 3.46-.35l1.73 4.41c.82.25 1.71.25 2.54 0l1.73-4.41a2 2 0 0 1 3.46.35l1.73 4.41z"/></svg>', order: 1 },
-        { id: 'video-play', name: 'VideoAds', description: 'Watch videos to earn rewards.', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2" ry="2"/></svg>', order: 2 },
-        { id: 'wiseman', name: 'WiseMan', description: "Stake your coins and answer the WiseMan's question. Win and get rewarded, fail and lose your stake.", icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/><path d="m9 9.5 2 2 4-4"/></svg>', order: 3 },
-        { id: 'lucky-dice', name: 'Lucky Dice', description: 'Roll the dice and win rewards based on your roll.', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><path d="M16 8h.01"/><path d="M12 12h.01"/><path d="M8 8h.01"/><path d="M8 12h.01"/><path d="M8 16h.01"/><path d="M16 16h.01"/><path d="M12 16h.01"/></svg>', order: 4 },
-        { id: 'coin-flip', name: 'Coin Flip', description: 'Flip a coin and double your stake, or lose it all.', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7.5a10 10 0 0 0-10 10c0 5.52 4.48 10 10 10s10-4.48 10-10a10 10 0 0 0-10-10z"/><path d="M12 8c-3.87 0-7 3.13-7 7"/><path d="M12 2v2"/><path d="M12 19v2"/></svg>', order: 5 },
+    const now = Date.now();
+    const games: Omit<BonusGame, 'id'>[] = [
+        { name: 'Puzzle Game', description: 'Solve an AI-generated puzzle to win a prize!', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19.43 12.03c.25.82.25 1.71 0 2.54l-1.73 4.41a2 2 0 0 1-3.46.35l-1.73-4.41a2.43 2.43 0 0 0-2.54 0l-1.73 4.41a2 2 0 0 1-3.46-.35l-1.73-4.41a2.43 2.43 0 0 0 0-2.54l1.73-4.41a2 2 0 0 1 3.46-.35l1.73 4.41c.82.25 1.71.25 2.54 0l1.73-4.41a2 2 0 0 1 3.46.35l1.73 4.41z"/></svg>', order: 1, availableTimestamp: now, cooldownMinutes: 120 },
+        { name: 'VideoAds', description: 'Watch videos to earn rewards.', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2" ry="2"/></svg>', order: 2, availableTimestamp: now },
+        { name: 'WiseMan', description: "Stake your coins and answer the WiseMan's question. Win and get rewarded, fail and lose your stake.", icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/><path d="m9 9.5 2 2 4-4"/></svg>', order: 3, availableTimestamp: now + 2 * 60 * 60 * 1000, durationMinutes: 60 },
+        { id: 'lucky-dice', name: 'Lucky Dice', description: 'Roll the dice and win rewards based on your roll.', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><path d="M16 8h.01"/><path d="M12 12h.01"/><path d="M8 8h.01"/><path d="M8 12h.01"/><path d="M8 16h.01"/><path d="M16 16h.01"/><path d="M12 16h.01"/></svg>', order: 4, availableTimestamp: now },
+        { id: 'coin-flip', name: 'Coin Flip', description: 'Flip a coin and double your stake, or lose it all.', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7.5a10 10 0 0 0-10 10c0 5.52 4.48 10 10 10s10-4.48 10-10a10 10 0 0 0-10-10z"/><path d="M12 8c-3.87 0-7 3.13-7 7"/><path d="M12 2v2"/><path d="M12 19v2"/></svg>', order: 5, availableTimestamp: now, cooldownMinutes: 5 },
       ];
-    games.forEach(game => {
-        const docRef = doc(db, 'bonusGames', game.id);
-        batch.set(docRef, game);
+
+    const ids = ['puzzle-game', 'video-play', 'wiseman', 'lucky-dice', 'coin-flip'];
+    
+    games.forEach((game, index) => {
+        const gameWithId = { ...game, id: ids[index] };
+        const docRef = doc(db, 'bonusGames', gameWithId.id);
+        batch.set(docRef, gameWithId);
     });
     await batch.commit();
 }
