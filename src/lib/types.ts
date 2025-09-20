@@ -1,4 +1,5 @@
 
+
 export type User = {
   id: string;
   email: string;
@@ -31,10 +32,12 @@ export type Powerup = {
   name: string;
   description: string;
   cost: number;
-  type: 'permanent_multiplier' | 'bot_upgrade';
+  type: 'permanent_multiplier' | 'bot_upgrade' | 'score_multiplier' | 'extra_time' | 'time_freeze';
   value: number;
   status: 'available' | 'sold';
-  maxQuantity: 1;
+  maxQuantity: number;
+  free?: boolean;
+  adUrl?: string;
 };
 
 export type UserBoost = {
@@ -45,6 +48,7 @@ export type UserBoost = {
 export type UserPowerup = {
   powerupId: string;
   purchasedAt: string;
+  quantity?: number;
 }
 
 export type Transaction = {
