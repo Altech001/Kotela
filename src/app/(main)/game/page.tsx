@@ -24,7 +24,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { BlogWidget } from '@/components/blog-widget';
 import { useGame } from '@/hooks/use-game';
 import { useAuth } from '@/hooks/use-auth';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { getBoosts, getPowerups } from '@/lib/actions';
 import type { Boost, Powerup, UserInventoryItem } from '@/lib/types';
 import { useInventory } from '@/hooks/use-inventory';
@@ -66,26 +66,41 @@ export default function Home() {
       rocket: Rocket,
   }
   
-  const ownedItems = [
-      ...(user?.boosts || []), // This will mainly be bots now
-      ...inventory,
-  ].reduce((acc, item) => {
-      const id = 'boostId' in item ? item.boostId : item.itemId;
-      const existing = acc.find(i => i.id === id);
-      if (existing) {
-          existing.quantity += 1;
+  const ownedItems = useMemo(() => {
+    const allItems = new Map<string, { name: string; type: string; quantity: number }>();
+
+    // Process bots from user.boosts
+    (user?.boosts || []).forEach(bot => {
+      const id = bot.boostId;
+      if (allItems.has(id)) {
+        const existing = allItems.get(id)!;
+        existing.quantity += 1;
       } else {
-          acc.push({
-              id,
-              name: 'name' in item ? item.name : 'Bot',
-              type: 'type' in item ? item.type : 'mining_bot',
-              // Use instanceId for bots, and the item's own id for inventory items
-              uniqueKey: 'instanceId' in item ? item.instanceId : item.id,
-              quantity: 1,
-          });
+        allItems.set(id, {
+          name: 'Bot', // Or fetch bot name if available
+          type: 'mining_bot',
+          quantity: 1
+        });
       }
-      return acc;
-  }, [] as { id: string; name: string; type: string; uniqueKey: string; quantity: number }[]);
+    });
+
+    // Process consumable items from inventory
+    inventory.forEach(item => {
+      const id = item.itemId;
+      if (allItems.has(id)) {
+        const existing = allItems.get(id)!;
+        existing.quantity += 1;
+      } else {
+        allItems.set(id, {
+          name: item.name,
+          type: item.type,
+          quantity: 1
+        });
+      }
+    });
+    
+    return Array.from(allItems.entries()).map(([id, data]) => ({ id, ...data }));
+  }, [user?.boosts, inventory]);
 
 
   return (
@@ -209,7 +224,7 @@ export default function Home() {
                                const Icon = inventoryIcons[item.type] || inventoryIcons[item.id] || Zap;
                                
                                return (
-                                   <div key={item.uniqueKey} className="flex items-center gap-2 p-2 bg-muted rounded-md text-xs font-bold">
+                                   <div key={item.id} className="flex items-center gap-2 p-2 bg-muted rounded-md text-xs font-bold">
                                        {Icon && <Icon className="w-4 h-4" />}
                                        <span>{item.name.split(' ')[0]} x {item.quantity}</span>
                                    </div>
