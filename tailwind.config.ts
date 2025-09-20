@@ -14,6 +14,9 @@ export default {
         headline: ['Inter', 'sans-serif'],
         code: ['monospace'],
       },
+      gridTemplateColumns: {
+        '25': 'repeat(25, minmax(0, 1fr))',
+      },
       colors: {
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
