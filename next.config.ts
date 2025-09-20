@@ -36,16 +36,26 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  webpack: (config, { isServer }) => {
-    if (!isServer) {
-        // Ensures the `ignored` property is an array before pushing to it.
-        if (!Array.isArray(config.watchOptions.ignored)) {
-            config.watchOptions.ignored = [];
-        }
-        config.watchOptions.ignored.push('**/.genkit/**');
-    }
-    return config;
-  },
+// Corrected code
+webpack: (config, { isServer }) => {
+  if (!isServer) {
+      // Create a mutable copy of watchOptions
+      const newWatchOptions = {
+          ...config.watchOptions,
+      };
+
+      // Ensure the `ignored` property is an array before pushing to it.
+      if (!Array.isArray(newWatchOptions.ignored)) {
+          newWatchOptions.ignored = [];
+      }
+      newWatchOptions.ignored.push('**/.genkit/**');
+
+      // Assign the new object back to the config
+      config.watchOptions = newWatchOptions;
+  }
+  return config;
+},
+
 };
 
 export default nextConfig;

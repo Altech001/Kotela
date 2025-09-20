@@ -15,7 +15,7 @@ export function useBackgroundMining() {
     const processOfflineMining = async () => {
       if (!user || processedRef.current) return;
 
-      const hasMiningBot = user.powerups.some(p => p.powerupId === 'bot-1' && p.quantity > 0) || user.boosts.some(b => b.boostId === 'bot-1' && b.quantity > 0);
+      const hasMiningBot = (user.powerups || []).some(p => p.powerupId === 'bot-1' && p.quantity > 0) || (user.boosts || []).some(b => b.boostId === 'bot-1' && b.quantity > 0);
       if (!hasMiningBot) return;
 
       const lastSeen = localStorage.getItem(`lastSeen_${user.id}`);
