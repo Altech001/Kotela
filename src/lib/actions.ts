@@ -3,8 +3,8 @@
 'use server';
 
 import { db } from '@/lib/firebase';
-import { collection, getDocs, orderBy, query, addDoc, serverTimestamp, where, doc, getDoc, writeBatch, deleteDoc, setDoc, arrayUnion } from 'firebase/firestore';
-import type { User, Comment, Boost, Powerup, Notification, MobileMoneyAccount, Transaction, Announcement, BonusGame, Video, KycSubmission, AdvertiserProfile, P2PListing, P2PPaymentMethod, P2PRegion } from '@/lib/types';
+import { collection, getDocs, orderBy, query, addDoc, serverTimestamp, where, doc, getDoc, writeBatch, deleteDoc, setDoc, arrayUnion, updateDoc } from 'firebase/firestore';
+import type { User, Comment, Boost, Powerup, Notification, MobileMoneyAccount, Transaction, Announcement, BonusGame, Video, KycSubmission, AdvertiserProfile, P2PListing, P2PPaymentMethod, P2PRegion, EnrichedP2PListing } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import { startOfDay, endOfDay } from 'date-fns';
 
@@ -523,10 +523,55 @@ export async function getAdvertiserListings(userId: string): Promise<P2PListing[
 
 export async function updateAdvertiserListing(listingId: string, updates: Partial<P2PListing>): Promise<void> {
     const listingRef = doc(db, 'p2pListings', listingId);
-    await setDoc(listingRef, updates, { merge: true });
+    await updateDoc(listingRef, updates);
 }
 
 export async function updateAdvertiserStatus(userId: string, isOnline: boolean): Promise<void> {
     const advertiserRef = doc(db, 'p2pAdvertisers', userId);
     await updateDoc(advertiserRef, { isOnline });
+}
+
+export async function getActiveP2PListings(): Promise<EnrichedP2PListing[]> {
+    const advertisersRef = collection(db, 'p2pAdvertisers');
+    const listingsRef = collection(db, 'p2pListings');
+
+    // Get all online advertisers
+    const onlineAdvsQuery = query(advertisersRef, where('isOnline', '==', true));
+    const onlineAdvsSnapshot = await getDocs(onlineAdvsQuery);
+    const onlineAdvsMap = new Map<string, AdvertiserProfile>();
+    onlineAdvsSnapshot.forEach(doc => {
+        const data = doc.data();
+        onlineAdvsMap.set(doc.id, {
+            ...data,
+            createdAt: data.createdAt?.toDate().toISOString()
+        } as AdvertiserProfile);
+    });
+
+    if (onlineAdvsMap.size === 0) {
+        return [];
+    }
+
+    // Get all listings from online advertisers
+    const onlineAdvsIds = Array.from(onlineAdvsMap.keys());
+    const listingsQuery = query(listingsRef, where('advertiserId', 'in', onlineAdvsIds));
+    const listingsSnapshot = await getDocs(listingsQuery);
+
+    const enrichedListings: EnrichedP2PListing[] = [];
+    listingsSnapshot.forEach(doc => {
+        const listing = {
+             id: doc.id,
+             ...doc.data(),
+             createdAt: doc.data().createdAt?.toDate().toISOString(),
+        } as P2PListing;
+
+        const advertiser = onlineAdvsMap.get(listing.advertiserId);
+        if (advertiser) {
+            enrichedListings.push({
+                ...listing,
+                advertiser,
+            });
+        }
+    });
+
+    return enrichedListings.sort((a,b) => b.price - a.price);
 }

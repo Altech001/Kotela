@@ -238,6 +238,10 @@ export type AdvertiserProfile = {
   supportedPaymentMethods: string[]; // array of payment method IDs
   supportedRegions: string[]; // array of region IDs
   createdAt: string; // ISO string
+  orders: number;
+  completion: number;
+  rating: number;
+  avgReleaseTime: number;
 };
 
 export type P2PListing = {
@@ -253,6 +257,10 @@ export type P2PListing = {
   paymentMethods: string[]; // actual names for display
   createdAt: string; // ISO string
 };
+
+export type EnrichedP2PListing = P2PListing & {
+    advertiser: AdvertiserProfile;
+}
 
 export type P2PTrade = {
   id: string;
