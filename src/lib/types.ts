@@ -22,6 +22,8 @@ export type Boost = {
   type: 'score_multiplier' | 'extra_time' | 'time_freeze' | 'mining_bot';
   value: number; // e.g., 2 for 2x multiplier, 10 for 10 extra seconds
   status: 'available' | 'sold';
+  free?: boolean;
+  adUrl?: string;
 };
 
 export type Powerup = {
