@@ -49,13 +49,21 @@ const iconMap: { [key: string]: React.ElementType } = {
   rocket: Rocket,
 };
 
-const ItemCard = ({ item, onBuyClick, userPowerups }: { item: StoreItem, onBuyClick: (item: StoreItem) => void, userPowerups: string[] }) => {
+const ItemCard = ({ item, onBuyClick, userPowerups, userBoosts }: { item: StoreItem, onBuyClick: (item: StoreItem) => void, userPowerups: UserPowerup[], userBoosts: UserBoost[] }) => {
     const Icon = iconMap[item.type] || iconMap[item.id] || Zap;
     const isPowerup = 'maxQuantity' in item;
-    const userItem = userPowerups.find(p => p === item.id);
-    const quantityOwned = isPowerup ? (userItem ? 1 : 0) : 0; // Simplified for now
-    
-    const isSoldOut = item.status === 'sold' || (isPowerup && item.maxQuantity === 1 && userPowerups.includes(item.id));
+
+    let quantityOwned = 0;
+    let isSoldOut = false;
+
+    if (isPowerup) {
+      const ownedItem = userPowerups.find(p => p.powerupId === item.id);
+      quantityOwned = ownedItem?.quantity || 0;
+      isSoldOut = quantityOwned >= (item as Powerup).maxQuantity;
+    } else {
+       const ownedItem = userBoosts.find(b => b.boostId === item.id);
+       quantityOwned = ownedItem?.quantity || 0;
+    }
     
     return (
         <Card className="flex flex-col shadow-sm hover:shadow-lg transition-shadow duration-300 relative overflow-hidden">
@@ -104,24 +112,17 @@ export function Store({ isDialog = false }: { isDialog?: boolean }) {
     fetchItems();
   }, []);
   
-  const userPowerups = user?.powerups?.map(p => p.powerupId) || [];
+  const userPowerups = user?.powerups || [];
+  const userBoosts = user?.boosts || [];
 
   const handleBuyClick = (item: StoreItem) => {
-    if (item.status === 'sold') {
-      toast({
-        title: 'Sold Out',
-        description: 'This item is currently unavailable.',
-        variant: 'destructive',
-      });
-      return;
-    }
      if ('maxQuantity' in item) {
         const powerup = item as Powerup;
         const ownedPowerup = user?.powerups.find(p => p.powerupId === powerup.id);
         if (ownedPowerup && (ownedPowerup.quantity || 0) >= powerup.maxQuantity) {
              toast({
-                title: 'Already Owned',
-                description: `You have reached the max quantity for ${powerup.name}.`,
+                title: 'Max Quantity Reached',
+                description: `You already own the maximum amount of ${powerup.name}.`,
              });
              return;
         }
@@ -148,11 +149,9 @@ export function Store({ isDialog = false }: { isDialog?: boolean }) {
         description: `You've bought ${selectedItem.name}.`,
       });
     } else {
-      // The buyItem function should ideally provide a more specific error.
-      // For now, a generic message is shown, but we already have specific client-side checks.
       toast({
         title: 'Purchase Failed',
-        description: 'An unknown error occurred. Please try again.',
+        description: 'You may not have enough KTC or already own this item.',
         variant: 'destructive',
       });
     }
@@ -182,7 +181,7 @@ export function Store({ isDialog = false }: { isDialog?: boolean }) {
                       ) : (
                           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                               {boosts.map((item) => (
-                                  <ItemCard key={item.id} item={item} onBuyClick={handleBuyClick} userPowerups={userPowerups} />
+                                  <ItemCard key={item.id} item={item} onBuyClick={handleBuyClick} userPowerups={userPowerups} userBoosts={userBoosts} />
                               ))}
                           </div>
                       )}
@@ -197,7 +196,7 @@ export function Store({ isDialog = false }: { isDialog?: boolean }) {
                         ) : (
                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                               {powerups.map((item) => (
-                                 <ItemCard key={item.id} item={item} onBuyClick={handleBuyClick} userPowerups={userPowerups} />
+                                 <ItemCard key={item.id} item={item} onBuyClick={handleBuyClick} userPowerups={userPowerups} userBoosts={userBoosts} />
                               ))}
                           </div>
                         )}
@@ -251,5 +250,3 @@ export function Store({ isDialog = false }: { isDialog?: boolean }) {
     </>
   );
 }
-
-    
