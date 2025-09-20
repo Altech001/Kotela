@@ -17,7 +17,7 @@ export function useBackgroundMining() {
     const processOfflineMining = async () => {
       if (!user || processedRef.current) return;
 
-      const activeMiningBots = (user.boosts || []).filter(b => b.boostId === 'bot-1' && b.active);
+      const activeMiningBots = (user.boosts || []).filter(b => b.type === 'mining_bot' && b.active);
       if (activeMiningBots.length === 0) return;
 
       const lastSeen = localStorage.getItem(`lastSeen_${user.id}`);
@@ -59,11 +59,11 @@ export function useBackgroundMining() {
             });
 
             try {
-              const summaryResult = await backgroundMiningSummary(
-                new Date(startTime).toISOString(),
-                new Date(now).toISOString(),
-                ktcMined
-              );
+              const summaryResult = await backgroundMiningSummary({
+                startTime: new Date(startTime).toISOString(),
+                endTime: new Date(now).toISOString(),
+                ktcMined: ktcMined,
+              });
               
               await addNotification(user.id, {
                 title: 'Background Mining Report',
