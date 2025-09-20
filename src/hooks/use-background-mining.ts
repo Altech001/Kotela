@@ -76,26 +76,6 @@ export function useBackgroundMining() {
             } catch (e) {
               console.error("Failed to update KTC from background mining", e)
             }
-
-
-            try {
-              const summaryResult = await backgroundMiningSummary({
-                startTime: new Date(startTime).toISOString(),
-                endTime: new Date(now).toISOString(),
-                ktcMined: ktcMined,
-              });
-              
-              await addNotification(user.id, {
-                title: 'Background Mining Report',
-                description: summaryResult.summary,
-              });
-            } catch (e) {
-                console.error("Could not get background mining summary", e);
-                await addNotification(user.id, {
-                    title: 'Background Mining Report',
-                    description: `Your bots mined ${ktcMined.toFixed(4)} KTC while you were away.`,
-                });
-            }
           }
         }
       }
