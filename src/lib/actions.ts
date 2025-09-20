@@ -500,7 +500,7 @@ export async function getAdvertiserProfile(userId: string): Promise<AdvertiserPr
         const data = docSnap.data();
         return {
             ...data,
-            createdAt: data.createdAt.toDate().toISOString(),
+            createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString(),
         } as AdvertiserProfile;
     }
     return null;
@@ -516,7 +516,7 @@ export async function getAdvertiserListings(userId: string): Promise<P2PListing[
       return {
         id: doc.id,
         ...data,
-        createdAt: data.createdAt.toDate().toISOString()
+        createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString()
       } as P2PListing
   });
 }
@@ -543,7 +543,7 @@ export async function getActiveP2PListings(): Promise<EnrichedP2PListing[]> {
         const data = doc.data();
         onlineAdvsMap.set(doc.id, {
             ...data,
-            createdAt: data.createdAt?.toDate().toISOString()
+            createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString()
         } as AdvertiserProfile);
     });
 
@@ -561,7 +561,7 @@ export async function getActiveP2PListings(): Promise<EnrichedP2PListing[]> {
         const listing = {
              id: doc.id,
              ...doc.data(),
-             createdAt: doc.data().createdAt?.toDate().toISOString(),
+             createdAt: doc.data().createdAt?.toDate ? doc.data().createdAt.toDate().toISOString() : new Date().toISOString(),
         } as P2PListing;
 
         const advertiser = onlineAdvsMap.get(listing.advertiserId);
@@ -575,3 +575,4 @@ export async function getActiveP2PListings(): Promise<EnrichedP2PListing[]> {
 
     return enrichedListings.sort((a,b) => b.price - a.price);
 }
+
