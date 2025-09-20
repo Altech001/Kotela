@@ -9,14 +9,28 @@ import { revalidatePath } from 'next/cache';
 import { startOfDay, endOfDay } from 'date-fns';
 
 
-export async function getLeaderboard() {
+export async function getLeaderboard(): Promise<User[]> {
   try {
     const usersRef = collection(db, 'users');
     const q = query(usersRef, orderBy('ktc', 'desc'));
     const querySnapshot = await getDocs(q);
     const users: User[] = [];
+
     querySnapshot.forEach((doc) => {
-      users.push(doc.data() as User);
+      const user = doc.data() as User;
+      const transactions = user.transactions || [];
+      
+      const totalBotRevenue = transactions
+        .filter(tx => tx.description?.toLowerCase().includes('background mining'))
+        .reduce((sum, tx) => sum + tx.amount, 0);
+
+      const activeBotCount = (user.boosts || []).filter(b => b.botType === 'background' && b.active).length;
+
+      users.push({
+        ...user,
+        totalBotRevenue,
+        activeBotCount
+      });
     });
     return users;
   } catch (error) {

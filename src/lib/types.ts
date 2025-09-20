@@ -29,6 +29,8 @@ export type User = {
   settings?: {
     showAnnouncements?: boolean;
   };
+  totalBotRevenue?: number;
+  activeBotCount?: number;
 };
 
 export type UserInventoryItem = {
