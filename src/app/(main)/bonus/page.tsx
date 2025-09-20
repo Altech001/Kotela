@@ -9,49 +9,63 @@ import { getBonusGames, type BonusGame } from '@/lib/actions';
 import { Loader2, ArrowRight, Timer } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 
 const GameCard = ({ game }: { game: BonusGame }) => {
-    const [timeLeft, setTimeLeft] = useState('');
-    const [isAvailable, setIsAvailable] = useState(false);
+    const [progress, setProgress] = useState(0);
     const [status, setStatus] = useState<'available' | 'cooldown' | 'active'>('cooldown');
+    const [label, setLabel] = useState('');
 
     useEffect(() => {
         const interval = setInterval(() => {
             const now = Date.now();
             const availableTime = game.availableTimestamp || 0;
+            const cooldownMs = (game.cooldownMinutes || 0) * 60 * 1000;
+            const durationMs = (game.durationMinutes || 0) * 60 * 1000;
+            
+            const gameStartTimeFromCooldownEnd = availableTime - cooldownMs;
 
             if (now < availableTime) {
                 // Game is on cooldown
+                setStatus('cooldown');
+                const timeSinceCooldownStart = now - gameStartTimeFromCooldownEnd;
+                const progressPercentage = Math.min(100, (timeSinceCooldownStart / cooldownMs) * 100);
+                setProgress(progressPercentage);
+                
                 const remaining = availableTime - now;
                 const hours = Math.floor(remaining / (1000 * 60 * 60));
                 const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
                 const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
-                setTimeLeft(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
-                setIsAvailable(false);
-                setStatus('cooldown');
+                setLabel(`Next in: ${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+
             } else {
-                if (game.durationMinutes) {
-                    // Game has a limited active duration
-                    const endTime = availableTime + game.durationMinutes * 60 * 1000;
+                 if (game.durationMinutes) {
+                    const endTime = availableTime + durationMs;
                     if (now < endTime) {
+                        // Game is active for a limited time
+                        setStatus('active');
                         const remaining = endTime - now;
+                        const progressPercentage = Math.max(0, (remaining / durationMs) * 100);
+                        setProgress(progressPercentage);
+
                         const hours = Math.floor(remaining / (1000 * 60 * 60));
                         const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
                         const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
-                        setTimeLeft(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
-                        setIsAvailable(true);
-                        setStatus('active');
+                        setLabel(`Ends in: ${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+
                     } else {
-                        // Duration has ended, treat as available but with no timer
-                        setTimeLeft('');
-                        setIsAvailable(true);
+                        // Duration has ended, but it might be on cooldown for the next cycle.
+                        // For simplicity, we'll treat it as available for now. A more complex system
+                        // would calculate the next availableTimestamp.
                         setStatus('available');
+                        setProgress(100);
+                        setLabel('Available now');
                     }
                 } else {
                     // Game is permanently available
-                    setTimeLeft('');
-                    setIsAvailable(true);
                     setStatus('available');
+                    setProgress(100);
+                    setLabel('Available now');
                 }
             }
         }, 1000);
@@ -59,28 +73,31 @@ const GameCard = ({ game }: { game: BonusGame }) => {
         return () => clearInterval(interval);
     }, [game]);
 
-    const getStatusBadge = () => {
-        if (status === 'active') {
-            return <Badge variant="default" className="bg-green-600/20 text-green-400 border-green-600/50">Active: {timeLeft}</Badge>;
-        }
-        if (status === 'cooldown') {
-            return <Badge variant="secondary">Next in: {timeLeft}</Badge>;
-        }
-        return <Badge variant="outline">Available</Badge>;
-    };
 
     return (
         <Card key={game.id} className="flex flex-col">
             <CardHeader>
-                <div className="flex items-start justify-between">
+                <div className="flex items-center justify-between">
                      <div dangerouslySetInnerHTML={{ __html: game.icon }} className="w-8 h-8 text-primary" />
-                     {getStatusBadge()}
+                     <Badge variant={status === 'available' ? 'outline' : 'secondary'}>
+                        {status === 'active' ? 'Active' : status === 'cooldown' ? 'On Cooldown' : 'Available'}
+                    </Badge>
                 </div>
                 <CardTitle>{game.name}</CardTitle>
                 <CardDescription className="flex-grow h-12">{game.description}</CardDescription>
             </CardHeader>
+             <CardContent>
+                {status !== 'available' && (
+                    <div className="space-y-2">
+                        <div className="flex justify-between items-center text-xs text-muted-foreground">
+                            <span>{label}</span>
+                        </div>
+                        <Progress value={progress} className="h-2" />
+                    </div>
+                )}
+            </CardContent>
             <CardFooter className="mt-auto">
-                <Button asChild className="w-full" disabled={!isAvailable}>
+                <Button asChild className="w-full" disabled={status === 'cooldown'}>
                     <Link href={`/bonus/${game.id}`}>
                         Play Now <ArrowRight className="ml-2" />
                     </Link>
@@ -116,7 +133,7 @@ export default function BonusGamesPage() {
             {loading ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {Array.from({ length: 6 }).map((_, i) => (
-                        <Card key={i} className="animate-pulse h-60">
+                        <Card key={i} className="animate-pulse h-72">
                             <CardHeader>
                                 <div className="h-8 w-8 bg-muted rounded-full"></div>
                                 <div className="space-y-2 mt-2">
@@ -125,6 +142,9 @@ export default function BonusGamesPage() {
                                     <div className="h-4 w-5/6 bg-muted rounded"></div>
                                 </div>
                             </CardHeader>
+                            <CardContent>
+                               <div className="h-8 w-full bg-muted rounded"></div>
+                            </CardContent>
                             <CardFooter>
                                 <div className="h-10 w-full bg-muted rounded-md"></div>
                             </CardFooter>
