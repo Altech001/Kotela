@@ -1,5 +1,6 @@
 
 
+
 'use client';
 
 import { createContext, useState, useEffect, useCallback, ReactNode, useMemo } from 'react';
@@ -8,7 +9,7 @@ import type { Boost as BoostType, Powerup as PowerupType, GameSession, UserPower
 import { getBoost, getPowerup } from '@/lib/actions';
 import { analyzePrivacyRisks } from '@/ai/flows/privacy-risk-analysis';
 import { db } from '@/lib/firebase';
-import { doc, setDoc, getDoc, updateDoc, deleteDoc, onSnapshot, runTransaction, arrayUnion, serverTimestamp, collection, addDoc, query, where, getDocs, limit, writeBatch } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, deleteDoc, onSnapshot, runTransaction, arrayUnion, serverTimestamp, collection, addDoc, query, where, getDocs, limit, writeBatch, increment } from 'firebase/firestore';
 
 
 export type GameStatus = "idle" | "playing" | "ended";
@@ -215,17 +216,21 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (!user || gameStatus === 'ended' || finalSession.status !== 'playing') return;
 
     setGameStatus('ended');
+    const actualDuration = Math.round((Date.now() - finalSession.startTime) / 1000);
 
     // Update local state to show final score
-    setSession(s => s ? {...s, status: 'ended'} : null);
+    setSession(s => s ? {...s, status: 'ended', actualDuration } : null);
 
     const sessionRef = doc(db, 'gameSessions', user.id);
-    await updateDoc(sessionRef, { status: 'ended' });
+    await updateDoc(sessionRef, { status: 'ended', actualDuration });
 
     const finalScore = finalSession.score;
     if (finalScore > 0) {
       const newKtc = user.ktc + finalScore;
-      await updateUser({ ktc: newKtc });
+      await updateUser({ 
+        ktc: newKtc,
+        totalMiningTime: increment(actualDuration)
+      });
       await addTransaction({
         type: 'deposit',
         amount: finalScore,

@@ -1,4 +1,5 @@
 
+
 export type Wallet = {
   id: string;
   network: string;
@@ -24,6 +25,7 @@ export type User = {
   referredBy?: string; // ID of the user who referred this user
   otpHash?: string;
   otpExpiry?: string; // ISO string
+  totalMiningTime?: number; // Total time in seconds
   settings?: {
     showAnnouncements?: boolean;
   };
@@ -146,6 +148,7 @@ export interface GameSession {
   expectedEndTime: number; // timestamp
   duration: number; // in seconds
   status: 'playing' | 'ended';
+  actualDuration?: number; // in seconds, set when game ends
   activeBoost: {
     id: string;
     name: string;
@@ -190,4 +193,24 @@ export type Video = {
     reward: number;
     youtubeId: string;
     watchTime: number;
+};
+
+export type KycSubmission = {
+    id: string;
+    userId: string;
+    status: 'pending' | 'approved' | 'rejected';
+    submittedAt: string; // ISO Date
+    formData: {
+        country: string;
+        phoneNumber: string;
+        surname: string;
+        givenName?: string;
+        middleName?: string;
+        dob: string; // YYYY-MM-DD
+        documentType: string;
+        documentId: string;
+        expiryDate: string; // YYYY-MM-DD
+    };
+    documentImage: string; // Base64
+    selfieImage: string; // Base64
 };

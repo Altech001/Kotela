@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from 'react';
@@ -29,6 +30,9 @@ import { getYears, getMonths, getDaysInMonth } from '@/lib/dates';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/hooks/use-auth';
+import { submitKyc, getKycSubmission } from '@/lib/actions';
+import type { KycSubmission } from '@/lib/types';
+import { Progress } from '@/components/ui/progress';
 
 const formSchema = z.object({
   country: z.string({ required_error: "Please select a country." }).min(2, "Please select a country."),
@@ -44,7 +48,6 @@ const formSchema = z.object({
   expiry_year: z.string({ required_error: "Please select a year." }),
   expiry_month: z.string({ required_error: "Please select a month." }),
   expiry_day: z.string({ required_error: "Please select a day." }),
-  document: z.any().refine((file) => file, "Document image is required."),
 });
 
 type VerificationFormValues = z.infer<typeof formSchema>;
@@ -62,13 +65,17 @@ const documentIdLabels: { [key: string]: string } = {
     national_id: "National Identity Number (NIN)",
 };
 
+const KYC_MINING_REQUIREMENT_HOURS = 5;
+const KYC_MINING_REQUIREMENT_SECONDS = KYC_MINING_REQUIREMENT_HOURS * 3600;
+
 export default function VerifyPage() {
   const { user, updateUser } = useAuth();
   const { toast } = useToast();
   const [step, setStep] = useState(1);
   const [uploadMode, setUploadMode] = useState<'select' | 'upload' | 'camera'>('select');
   const [selfieUploadMode, setSelfieUploadMode] = useState<'select' | 'upload' | 'camera'>('select');
-  const [submissionStatus, setSubmissionStatus] = useState<'idle' | 'submitted'>(user?.isKycVerified ? 'submitted' : 'idle');
+  const [submission, setSubmission] = useState<KycSubmission | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -95,6 +102,15 @@ export default function VerifyPage() {
     },
     mode: 'onChange',
   });
+
+  useEffect(() => {
+    if (user) {
+        getKycSubmission(user.id).then(sub => {
+            setSubmission(sub);
+            setLoading(false);
+        });
+    }
+  }, [user]);
 
   const getCameraPermission = useCallback(async (isSelfieCamera = false) => {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -130,19 +146,47 @@ export default function VerifyPage() {
     }
   }, [step, uploadMode, selfieUploadMode, getCameraPermission]);
 
-  function onSubmit(values: VerificationFormValues) {
+  async function onSubmit(values: VerificationFormValues) {
+    if (!user || !documentPreview || !selfie) return;
+
     const dob = `${values.dob_year}-${values.dob_month}-${values.dob_day}`;
     const expiryDate = `${values.expiry_year}-${values.expiry_month}-${values.expiry_day}`;
-    console.log({...values, dob, expiryDate});
-    console.log("Selfie data URI:", selfie);
     
-    updateUser({isKycVerified: true});
+    try {
+        const submissionId = await submitKyc({
+            userId: user.id,
+            formData: { ...values, dob, expiryDate },
+            documentImage: documentPreview,
+            selfieImage: selfie,
+        });
 
-    toast({
-      title: "Verification Submitted",
-      description: "Your verification details are being reviewed.",
-    });
-    setSubmissionStatus('submitted');
+        // Optimistically update local state
+        setSubmission({
+            id: submissionId,
+            userId: user.id,
+            status: 'pending',
+            submittedAt: new Date().toISOString(),
+            formData: { ...values, dob, expiryDate },
+            documentImage: documentPreview,
+            selfieImage: selfie,
+        });
+        
+        // This is where you would update the user's KYC status to 'pending' in a real app
+        // For simulation, we'll set it to verified directly
+        await updateUser({isKycVerified: true});
+
+        toast({
+          title: "Verification Submitted",
+          description: "Your verification details have been submitted and are now pending review.",
+        });
+
+    } catch (error: any) {
+         toast({
+          title: "Submission Failed",
+          description: error.message || "An unexpected error occurred.",
+          variant: 'destructive',
+        });
+    }
   }
 
   const handleCaptureSelfie = () => {
@@ -168,8 +212,6 @@ export default function VerifyPage() {
         if (context) {
             context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
             const dataUri = canvas.toDataURL('image/jpeg');
-            
-            form.setValue('document', dataUri, { shouldValidate: true });
             setDocumentPreview(dataUri);
             
             const stream = video.srcObject as MediaStream;
@@ -183,7 +225,6 @@ export default function VerifyPage() {
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      form.setValue('document', file, { shouldValidate: true });
       const reader = new FileReader();
       reader.onloadend = () => {
         setDocumentPreview(reader.result as string);
@@ -231,6 +272,18 @@ export default function VerifyPage() {
   const isStep2Valid = form.watch('documentType') && form.watch('documentId') && form.watch('expiry_day') && form.watch('expiry_month') && form.watch('expiry_year') && documentPreview && !form.getFieldState('documentId').invalid;
   const isStep3Valid = !!selfie;
 
+  if (loading) {
+      return <div>Loading...</div>;
+  }
+
+  const totalMiningTime = user?.totalMiningTime || 0;
+  const hasMetRequirement = totalMiningTime >= KYC_MINING_REQUIREMENT_SECONDS;
+  const timeRemaining = KYC_MINING_REQUIREMENT_SECONDS - totalMiningTime;
+  const timeRemainingHours = Math.floor(timeRemaining / 3600);
+  const timeRemainingMinutes = Math.floor((timeRemaining % 3600) / 60);
+  const progressPercentage = Math.min(100, (totalMiningTime / KYC_MINING_REQUIREMENT_SECONDS) * 100);
+
+
   return (
     <div className="w-full max-w-2xl mx-auto space-y-6">
        <Breadcrumb>
@@ -247,17 +300,60 @@ export default function VerifyPage() {
         </BreadcrumbList>
       </Breadcrumb>
       
-      {submissionStatus === 'submitted' ? (
-         <Card className="text-center">
-            <CardHeader>
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100 dark:bg-green-900">
-                <Check className="h-6 w-6 text-green-600 dark:text-green-400" />
-              </div>
-              <CardTitle className="mt-4">Verification Complete</CardTitle>
+      {!hasMetRequirement ? (
+          <Card>
+              <CardHeader className="items-center text-center">
+                  <Hourglass className="w-12 h-12 text-primary" />
+                  <CardTitle>Mining Time Required</CardTitle>
+                  <CardDescription>You must mine for a total of {KYC_MINING_REQUIREMENT_HOURS} hours to access KYC verification.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                  <Progress value={progressPercentage} />
+                  <div className="text-center text-muted-foreground">
+                      <p>You have mined for {Math.floor(totalMiningTime / 3600)}h {Math.floor((totalMiningTime % 3600) / 60)}m.</p>
+                      <p>Approximately <span className="font-bold">{timeRemainingHours}h {timeRemainingMinutes}m</span> remaining.</p>
+                  </div>
+              </CardContent>
+              <CardFooter>
+                  <Button asChild className="w-full">
+                      <Link href="/game">Keep Mining</Link>
+                  </Button>
+              </CardFooter>
+          </Card>
+      ) : submission ? (
+         <Card>
+            <CardHeader className="items-center text-center">
+                {submission.status === 'approved' ? (
+                     <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100 dark:bg-green-900">
+                        <Check className="h-6 w-6 text-green-600 dark:text-green-400" />
+                     </div>
+                ) : submission.status === 'pending' ? (
+                    <Hourglass className="h-12 w-12 text-yellow-500" />
+                ) : (
+                    <AlertCircle className="h-12 w-12 text-destructive" />
+                )}
+              <CardTitle className="mt-4">
+                  Verification {submission.status.charAt(0).toUpperCase() + submission.status.slice(1)}
+              </CardTitle>
               <CardDescription>
-                Your account is now verified. You have access to all features.
+                  {submission.status === 'approved' && "Your account is verified. You have access to all features."}
+                  {submission.status === 'pending' && "Your submission is under review. This usually takes 1-3 business days."}
+                  {submission.status === 'rejected' && "Your submission was rejected. Please review and resubmit."}
               </CardDescription>
             </CardHeader>
+             <CardContent className="space-y-4">
+                 <h3 className="font-semibold">Your Submitted Information</h3>
+                 <div className="grid grid-cols-2 gap-4 text-sm p-4 border rounded-lg">
+                    <div><Label className="text-muted-foreground">Name</Label><p>{submission.formData.givenName} {submission.formData.surname}</p></div>
+                    <div><Label className="text-muted-foreground">Date of Birth</Label><p>{submission.formData.dob}</p></div>
+                    <div><Label className="text-muted-foreground">Document Type</Label><p>{submission.formData.documentType.replace(/_/g, ' ')}</p></div>
+                    <div><Label className="text-muted-foreground">Document ID</Label><p>{submission.formData.documentId}</p></div>
+                 </div>
+                 <div className="grid grid-cols-2 gap-4">
+                     <div className="space-y-2"><Label>Document</Label><Image src={submission.documentImage} alt="Submitted document" width={300} height={200} className="rounded-lg border"/></div>
+                     <div className="space-y-2"><Label>Selfie</Label><Image src={submission.selfieImage} alt="Submitted selfie" width={300} height={200} className="rounded-lg border"/></div>
+                 </div>
+             </CardContent>
             <CardFooter>
               <Button asChild className="w-full">
                 <Link href="/profile">Back to Profile</Link>
@@ -556,7 +652,7 @@ export default function VerifyPage() {
                                       <div className="relative w-full aspect-video rounded-lg overflow-hidden border">
                                           <Image src={documentPreview} alt="Document preview" layout="fill" objectFit="contain" />
                                       </div>
-                                      <Button variant="link" onClick={() => { setDocumentPreview(null); form.setValue('document', null); setUploadMode('select'); }}>
+                                      <Button variant="link" onClick={() => { setDocumentPreview(null); }}>
                                           Clear and re-upload
                                       </Button>
                                   </div>

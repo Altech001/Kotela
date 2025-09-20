@@ -1,9 +1,10 @@
 
+
 'use server';
 
 import { db } from '@/lib/firebase';
 import { collection, getDocs, orderBy, query, addDoc, serverTimestamp, where, doc, getDoc, writeBatch, deleteDoc, setDoc, arrayUnion } from 'firebase/firestore';
-import type { User, Comment, Boost, Powerup, Notification, MobileMoneyAccount, Transaction, Announcement, BonusGame, Video } from '@/lib/types';
+import type { User, Comment, Boost, Powerup, Notification, MobileMoneyAccount, Transaction, Announcement, BonusGame, Video, KycSubmission } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import { startOfDay, endOfDay } from 'date-fns';
 
@@ -341,4 +342,49 @@ async function seedVideos() {
         batch.set(docRef, video);
     });
     await batch.commit();
+}
+
+export async function submitKyc(submission: Omit<KycSubmission, 'id' | 'status' | 'submittedAt'>) {
+    const kycRef = collection(db, 'kycSubmissions');
+    
+    // Check if a submission already exists for the user
+    const q = query(kycRef, where('userId', '==', submission.userId));
+    const existing = await getDocs(q);
+    
+    if (!existing.empty) {
+        // Update existing submission instead of creating a new one
+        const docRef = existing.docs[0].ref;
+        await setDoc(docRef, {
+            ...submission,
+            status: 'pending',
+            submittedAt: serverTimestamp(),
+        }, { merge: true });
+        return docRef.id;
+    } else {
+        // Create new submission
+        const docRef = await addDoc(kycRef, {
+            ...submission,
+            status: 'pending',
+            submittedAt: serverTimestamp(),
+        });
+        return docRef.id;
+    }
+}
+
+export async function getKycSubmission(userId: string): Promise<KycSubmission | null> {
+    const kycRef = collection(db, 'kycSubmissions');
+    const q = query(kycRef, where('userId', '==', userId));
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+        return null;
+    }
+
+    const doc = snapshot.docs[0];
+    const data = doc.data();
+    return {
+        id: doc.id,
+        ...data,
+        submittedAt: data.submittedAt.toDate().toISOString(),
+    } as KycSubmission;
 }
