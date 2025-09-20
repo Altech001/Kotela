@@ -12,7 +12,7 @@ import { doc, runTransaction, arrayUnion } from 'firebase/firestore';
 const KTC_PER_HOUR = 1;
 
 export function useBackgroundMining() {
-  const { user, updateUser, addTransaction } = useAuth();
+  const { user } = useAuth();
   const processedRef = useRef(false);
 
   useEffect(() => {
@@ -20,7 +20,12 @@ export function useBackgroundMining() {
       if (!user || processedRef.current) return;
 
       const activeMiningBots = (user.boosts || []).filter(b => b.type === 'mining_bot' && b.active);
-      if (activeMiningBots.length === 0) return;
+      if (activeMiningBots.length === 0) {
+        // If there are no active bots, we still need to set the last seen time for when they are activated later.
+        localStorage.setItem(`lastSeen_${user.id}`, Date.now().toString());
+        processedRef.current = true;
+        return;
+      }
 
       const lastSeen = localStorage.getItem(`lastSeen_${user.id}`);
       const now = Date.now();
@@ -32,11 +37,13 @@ export function useBackgroundMining() {
 
         if (hoursElapsed > MIN_HOURS) {
           
-          let rate = KTC_PER_HOUR;
+          let baseRate = KTC_PER_HOUR;
           const botUpgrade = (user.powerups || []).find(p => p.powerupId === 'bot-upgrade-1');
-          if(botUpgrade) rate *= botUpgrade.value;
+          if(botUpgrade) {
+            baseRate *= botUpgrade.value;
+          }
           
-          const totalRate = rate * activeMiningBots.length;
+          const totalRate = baseRate * activeMiningBots.length;
           const ktcMined = hoursElapsed * totalRate;
 
           if (ktcMined > 0) {
@@ -49,8 +56,6 @@ export function useBackgroundMining() {
                 const currentKtc = userDoc.data().ktc;
                 const newKtc = currentKtc + ktcMined;
                 
-                transaction.update(userRef, { ktc: newKtc });
-
                 const newTransaction = {
                   type: 'deposit',
                   amount: ktcMined,
@@ -58,7 +63,11 @@ export function useBackgroundMining() {
                   timestamp: new Date().toISOString(),
                   id: `tx-${Date.now()}`
                 };
-                transaction.update(userRef, { transactions: arrayUnion(newTransaction) });
+                
+                transaction.update(userRef, { 
+                  ktc: newKtc,
+                  transactions: arrayUnion(newTransaction)
+                });
               });
             } catch (e) {
               console.error("Failed to update KTC from background mining", e)
@@ -86,6 +95,9 @@ export function useBackgroundMining() {
           }
         }
       }
+      
+      // Always update lastSeen time and mark as processed for this session
+      localStorage.setItem(`lastSeen_${user.id}`, now.toString());
       processedRef.current = true; 
     };
 
@@ -122,5 +134,3 @@ export function useBackgroundMining() {
     };
   }, [user]);
 }
-
-    

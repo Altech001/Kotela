@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,8 +20,8 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { useAuth } from '@/hooks/use-auth';
-import type { UserBoost } from '@/lib/types';
-import { storeItems as allBoosts } from '@/lib/data';
+import type { UserBoost, Boost, Powerup } from '@/lib/types';
+import { getBoosts, getPowerups } from '@/lib/actions';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -33,14 +33,24 @@ export default function MyBotsPage() {
     const { toast } = useToast();
     const [botToToggle, setBotToToggle] = useState<UserBoost | null>(null);
     const [botToDelete, setBotToDelete] = useState<UserBoost | null>(null);
+    const [allItems, setAllItems] = useState<(Boost | Powerup)[]>([]);
+
+    useEffect(() => {
+        async function fetchItems() {
+          const [boosts, powerups] = await Promise.all([getBoosts(), getPowerups()]);
+          setAllItems([...boosts, ...powerups]);
+        }
+        fetchItems();
+    }, []);
+
 
     const miningBots = useMemo(() => {
         if (!user || !user.boosts) return [];
         return user.boosts.filter(b => {
-            const boostInfo = allBoosts.find(info => info.id === b.boostId);
+            const boostInfo = allItems.find(info => info.id === b.boostId);
             return boostInfo && boostInfo.type === 'mining_bot';
         });
-    }, [user]);
+    }, [user, allItems]);
 
     const botUpgrade = useMemo(() => {
         return user?.powerups.find(p => p.powerupId === 'bot-upgrade-1');
@@ -157,7 +167,7 @@ export default function MyBotsPage() {
                 <CardContent className="p-0">
                     <div className="divide-y">
                         {miningBots.length > 0 ? miningBots.map((bot) => {
-                            const botInfo = allBoosts.find(b => b.id === bot.boostId);
+                            const botInfo = allItems.find(b => b.id === bot.boostId);
                             if (!botInfo || !bot.instanceId) return null;
                             return (
                                 <div key={bot.instanceId} className="p-4 grid grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_auto] items-center gap-4">
