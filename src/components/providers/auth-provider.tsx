@@ -12,6 +12,7 @@ import {
   signInWithEmailAndPassword,
   signOut,
   User as FirebaseUser,
+  sendPasswordResetEmail,
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs, writeBatch, arrayUnion, runTransaction, onSnapshot } from 'firebase/firestore';
 import { storeItems as localStoreItems } from '@/lib/data';
@@ -260,6 +261,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
+  const resetPassword = useCallback(async (email: string) => {
+    await sendPasswordResetEmail(auth, email);
+  }, []);
+
   const updateUser = useCallback(async (data: Partial<User>) => {
     if (user) {
       const userDocRef = doc(db, 'users', user.id);
@@ -473,7 +478,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
 
-  const value = { user, loading, login, signup, logout, updateUser, sendVerificationOtp, verifyPhoneNumber, addTransaction, transferKtc, addWalletAddress, deleteWalletAddress, toggleWalletStatus, toggleBotStatus, deleteBot };
+  const value = { user, loading, login, signup, logout, resetPassword, updateUser, sendVerificationOtp, verifyPhoneNumber, addTransaction, transferKtc, addWalletAddress, deleteWalletAddress, toggleWalletStatus, toggleBotStatus, deleteBot };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

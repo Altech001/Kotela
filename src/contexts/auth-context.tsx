@@ -9,6 +9,7 @@ type AuthContextType = {
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string, extraData?: Partial<User>) => Promise<void>;
   logout: () => void;
+  resetPassword: (email: string) => Promise<void>;
   updateUser: (data: Partial<User>) => void;
   sendVerificationOtp: (phoneNumber: string, name: string) => Promise<string>;
   verifyPhoneNumber: (otp: string) => Promise<void>;

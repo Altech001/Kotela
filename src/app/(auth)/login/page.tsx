@@ -61,7 +61,7 @@ export default function LoginPage() {
             <div className="flex items-center">
               <Label htmlFor="password">Password</Label>
               <Link
-                href="#" // Update this path if a forgot password page exists
+                href="/forgot-password"
                 className="ml-auto inline-block text-sm underline"
               >
                 Forgot your password?
