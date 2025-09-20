@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useEffect, useRef } from 'react';
@@ -19,7 +20,7 @@ export function useBackgroundMining() {
     const processOfflineMining = async () => {
       if (!user || processedRef.current) return;
 
-      const activeMiningBots = (user.boosts || []).filter(b => b.type === 'mining_bot' && b.active);
+      const activeMiningBots = (user.boosts || []).filter(b => b.botType === 'background' && b.active);
       if (activeMiningBots.length === 0) {
         // If there are no active bots, we still need to set the last seen time for when they are activated later.
         localStorage.setItem(`lastSeen_${user.id}`, Date.now().toString());
@@ -40,8 +41,8 @@ export function useBackgroundMining() {
           let baseRate = KTC_PER_HOUR;
           const botUpgrade = (user.powerups || []).find(p => p.powerupId === 'bot-upgrade-1');
           
-          const totalRate = activeMiningBots.reduce((acc) => {
-              let botRate = baseRate;
+          const totalRate = activeMiningBots.reduce((acc, bot) => {
+              let botRate = bot.effects?.ktcPerHour || baseRate;
               if(botUpgrade) {
                   botRate *= botUpgrade.value;
               }

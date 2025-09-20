@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useCallback, ReactNode, useEffect } from 'react';
@@ -75,10 +76,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const cleanupExpiredBots = useCallback(async (userId: string) => {
+    const userRef = doc(db, 'users', userId);
+    try {
+      await runTransaction(db, async (transaction) => {
+        const userDoc = await transaction.get(userRef);
+        if (!userDoc.exists()) return;
+
+        const userData = userDoc.data() as User;
+        const now = Date.now();
+        const activeBoosts = (userData.boosts || []).filter(boost => {
+          return boost.expiryTimestamp === null || boost.expiryTimestamp > now;
+        });
+
+        if (activeBoosts.length < (userData.boosts || []).length) {
+          transaction.update(userRef, { boosts: activeBoosts });
+        }
+      });
+    } catch (error) {
+      console.error("Error cleaning up expired bots:", error);
+    }
+  }, []);
+
   useEffect(() => {
     initializeCollections();
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
+        await cleanupExpiredBots(firebaseUser.uid);
         const userDocRef = doc(db, 'users', firebaseUser.uid);
         const unsubscribeUser = onSnapshot(userDocRef, (doc) => {
             if (doc.exists()) {
@@ -102,7 +126,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [cleanupExpiredBots]);
 
   const login = useCallback(async (email: string, password: string) => {
     setLoading(true);

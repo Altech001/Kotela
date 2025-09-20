@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -6,7 +7,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
-import { ChevronRight, Bot, Power, PowerOff, Trash2, DollarSign, PlusCircle, AlertTriangle } from 'lucide-react';
+import { ChevronRight, Bot, Power, PowerOff, Trash2, DollarSign, PlusCircle, AlertTriangle, BrainCircuit, Clock, Wind } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -20,11 +21,11 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { useAuth } from '@/hooks/use-auth';
-import type { UserBoost, Boost, Powerup } from '@/lib/types';
-import { getBoosts, getPowerups } from '@/lib/actions';
+import type { UserBoost } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
+import { formatDistanceToNow } from 'date-fns';
 
 const KTC_PER_HOUR = 1;
 
@@ -33,24 +34,17 @@ export default function MyBotsPage() {
     const { toast } = useToast();
     const [botToToggle, setBotToToggle] = useState<UserBoost | null>(null);
     const [botToDelete, setBotToDelete] = useState<UserBoost | null>(null);
-    const [allItems, setAllItems] = useState<(Boost | Powerup)[]>([]);
 
-    useEffect(() => {
-        async function fetchItems() {
-          const [boosts, powerups] = await Promise.all([getBoosts(), getPowerups()]);
-          setAllItems([...boosts, ...powerups]);
-        }
-        fetchItems();
-    }, []);
-
+    const botIcons: { [key: string]: React.ElementType } = {
+        background: BrainCircuit,
+        active_clicking: Wind,
+        active_yield: DollarSign,
+    };
 
     const miningBots = useMemo(() => {
         if (!user || !user.boosts) return [];
-        return user.boosts.filter(b => {
-            const boostInfo = allItems.find(info => info.id === b.boostId);
-            return boostInfo && boostInfo.type === 'mining_bot';
-        });
-    }, [user, allItems]);
+        return user.boosts.filter(b => b.botType).sort((a, b) => (b.expiryTimestamp || 0) - (a.expiryTimestamp || 0));
+    }, [user]);
 
     const botUpgrade = useMemo(() => {
         if (!user || !user.powerups) return null;
@@ -65,11 +59,11 @@ export default function MyBotsPage() {
         return baseRate;
     }, [botUpgrade]);
 
-    const activeBotsCount = useMemo(() => {
-        return miningBots.filter(b => b.active).length;
+    const activeBgBotsCount = useMemo(() => {
+        return miningBots.filter(b => b.botType === 'background' && b.active).length;
     }, [miningBots]);
 
-    const dailyRevenue = activeBotsCount * revenueRate * 24;
+    const dailyRevenue = activeBgBotsCount * revenueRate * 24;
     const totalRevenue = 0; // This would require tracking bot lifetime earnings
 
     const handleToggle = async () => {
@@ -93,6 +87,20 @@ export default function MyBotsPage() {
         }
         setBotToDelete(null);
     };
+
+    const getBotDescription = (bot: UserBoost): string => {
+        const effects = [];
+        if (bot.effects?.ktcPerHour) {
+            effects.push(`${bot.effects.ktcPerHour} KTC/hr (offline)`);
+        }
+        if (bot.effects?.ktcPerSecond) {
+            effects.push(`${bot.effects.ktcPerSecond} KTC/s (online)`);
+        }
+        if (bot.effects?.autoClick) {
+            effects.push(`Auto-clicks every ${((bot.effects.clickInterval || 2000) / 1000).toFixed(1)}s`);
+        }
+        return effects.join(', ') || "No special effects.";
+    }
 
     if (!user) {
         return (
@@ -138,21 +146,21 @@ export default function MyBotsPage() {
 
              <Card>
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><DollarSign /> Revenue Overview</CardTitle>
-                    <CardDescription>Estimated earnings from your currently active bots.</CardDescription>
+                    <CardTitle className="flex items-center gap-2"><DollarSign /> Background Revenue Overview</CardTitle>
+                    <CardDescription>Estimated earnings from your currently active background bots.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
                         <div className="bg-muted p-4 rounded-lg">
-                            <p className="text-sm text-muted-foreground">Active Bots</p>
-                            <p className="text-2xl font-bold">{activeBotsCount}</p>
+                            <p className="text-sm text-muted-foreground">Active Background Bots</p>
+                            <p className="text-2xl font-bold">{activeBgBotsCount}</p>
                         </div>
                          <div className="bg-muted p-4 rounded-lg">
                             <p className="text-sm text-muted-foreground">Est. Daily Revenue</p>
                             <p className="text-2xl font-bold">{dailyRevenue.toFixed(2)} KTC</p>
                         </div>
                          <div className="bg-muted p-4 rounded-lg">
-                            <p className="text-sm text-muted-foreground">Total Revenue</p>
+                            <p className="text-sm text-muted-foreground">Total Lifetime Revenue</p>
                             <p className="text-2xl font-bold">{totalRevenue.toFixed(2)} KTC</p>
                         </div>
                     </div>
@@ -168,15 +176,24 @@ export default function MyBotsPage() {
                 <CardContent className="p-0">
                     <div className="divide-y">
                         {miningBots.length > 0 ? miningBots.map((bot) => {
-                            const botInfo = allItems.find(b => b.id === bot.boostId);
-                            if (!botInfo || !bot.instanceId) return null;
+                            const BotIcon = bot.botType ? botIcons[bot.botType] || Bot : Bot;
                             return (
-                                <div key={bot.instanceId} className="p-4 grid grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_auto] items-center gap-4">
+                                <div key={bot.instanceId} className="p-4 grid grid-cols-1 md:grid-cols-[1fr_auto_auto] items-center gap-4">
                                     <div className="flex items-center gap-4">
-                                        <Bot className="h-8 w-8 text-primary" />
+                                        <BotIcon className="h-8 w-8 text-primary" />
                                         <div>
-                                            <p className="font-semibold">{botInfo.name}</p>
-                                            <p className="text-xs text-muted-foreground">Instance ID: ...{bot.instanceId.slice(-6)}</p>
+                                            <p className="font-semibold flex items-center gap-2">{bot.name}
+                                                <Badge variant={bot.active ? "default" : "secondary"} className="md:hidden">
+                                                    {bot.active ? 'Active' : 'Inactive'}
+                                                </Badge>
+                                            </p>
+                                            <p className="text-xs text-muted-foreground">{getBotDescription(bot)}</p>
+                                            {bot.expiryTimestamp && (
+                                                <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                                                    <Clock className="h-3 w-3" />
+                                                    Expires {formatDistanceToNow(new Date(bot.expiryTimestamp), { addSuffix: true })}
+                                                </p>
+                                            )}
                                         </div>
                                     </div>
                                     
@@ -218,7 +235,7 @@ export default function MyBotsPage() {
                         <AlertDialogTitle>Confirm Status Change</AlertDialogTitle>
                         <AlertDialogDescription>
                             Are you sure you want to {botToToggle?.active ? 'deactivate' : 'activate'} this bot?
-                            {botToToggle?.active ? ' It will stop generating revenue.' : ' It will start generating revenue.'}
+                            {botToToggle?.active ? ' It will stop performing its function.' : ' It will resume its function.'}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -233,7 +250,7 @@ export default function MyBotsPage() {
                     <AlertDialogHeader>
                         <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle/>Confirm Retirement</AlertDialogTitle>
                         <AlertDialogDescription>
-                            Are you sure you want to retire this bot? This action is permanent and cannot be undone. You will need to purchase a new one from the store.
+                            Are you sure you want to retire this bot? This action is permanent and cannot be undone.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>

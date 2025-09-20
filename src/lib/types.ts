@@ -1,4 +1,5 @@
 
+
 export type Wallet = {
   id: string;
   network: string;
@@ -12,8 +13,8 @@ export type User = {
   name: string;
   avatarUrl: string;
   ktc: number;
-  boosts: UserBoost[]; // This will be deprecated for inventory items but kept for bots
-  powerups: UserPowerup[]; // This will be deprecated for inventory items but kept for permanent upgrades
+  boosts: UserBoost[];
+  powerups: UserPowerup[];
   transactions: Transaction[];
   referralCode: string;
   isKycVerified: boolean;
@@ -46,6 +47,13 @@ export type Notification = {
     isRead: boolean;
 }
 
+export type BotEffects = {
+  ktcPerSecond?: number; // For active game mining
+  ktcPerHour?: number;   // For background mining
+  autoClick?: boolean;   // For auto-clicking functionality
+  clickInterval?: number; // Interval in ms for auto-clicking
+};
+
 export type Boost = {
   id:string;
   name: string;
@@ -56,6 +64,9 @@ export type Boost = {
   status: 'available' | 'sold';
   free?: boolean;
   adUrl?: string;
+  botType?: 'background' | 'active_clicking' | 'active_yield';
+  durationHours?: number; // How long the bot lasts in hours
+  effects?: BotEffects;
 };
 
 export type Powerup = {
@@ -73,10 +84,13 @@ export type Powerup = {
 
 export type UserBoost = {
   boostId: string;
-  quantity: number;
-  instanceId?: string; // For individual bot instances
-  active?: boolean;    // For bot status
-  type?: string;
+  instanceId: string;
+  purchasedAt: string; // ISO string
+  expiryTimestamp: number | null; // null for non-expiring boosts, timestamp for expiring ones
+  active: boolean;
+  botType?: 'background' | 'active_clicking' | 'active_yield';
+  effects?: BotEffects;
+  name: string;
 };
 
 export type UserPowerup = {

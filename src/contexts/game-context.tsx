@@ -1,9 +1,10 @@
 
+
 'use client';
 
 import { createContext, useState, useEffect, useCallback, ReactNode, useMemo } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import type { Boost as BoostType, Powerup as PowerupType, GameSession, UserPowerup, UserBoost, UserInventoryItem } from '@/lib/types';
+import type { Boost as BoostType, Powerup as PowerupType, GameSession, UserPowerup, UserBoost } from '@/lib/types';
 import { getBoost, getPowerup } from '@/lib/actions';
 import { analyzePrivacyRisks } from '@/ai/flows/privacy-risk-analysis';
 import { db } from '@/lib/firebase';
@@ -83,6 +84,26 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
     return () => unsubscribe();
   }, [user]);
+  
+  // Auto-clicker bot logic
+  useEffect(() => {
+    let autoClickerInterval: NodeJS.Timeout | undefined;
+    const autoClickerBot = user?.boosts.find(b => b.botType === 'active_clicking' && b.active);
+
+    if (autoClickerBot && autoClickerBot.effects?.autoClick) {
+        const interval = autoClickerBot.effects.clickInterval || 2000;
+        autoClickerInterval = setInterval(() => {
+            if (gameStatus === 'idle') {
+                startGame();
+            } else if (gameStatus === 'ended') {
+                resetGame();
+            }
+        }, interval);
+    }
+
+    return () => clearInterval(autoClickerInterval);
+  }, [user, gameStatus]);
+
 
   // Main game loop (timer, score calculation, etc.)
   useEffect(() => {
@@ -109,6 +130,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
         const botUpgradePowerup = user?.powerups.find(p => p.powerupId === 'bot-upgrade-1');
         if (botUpgradePowerup) currentRate *= (botUpgradePowerup.value || 1);
 
+        // Apply active yield bots
+        const activeYieldBots = user?.boosts.filter(b => b.botType === 'active_yield' && b.active);
+        activeYieldBots?.forEach(bot => {
+            currentRate += bot.effects?.ktcPerSecond || 0;
+        });
 
         // Check for active boost/power-up and apply its effect
         if (currentSession.activeBoost && now < currentSession.activeBoost.endTime) {
@@ -135,7 +161,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       }, 1000);
     }
     return () => clearInterval(interval);
-  }, [gameStatus, session, user?.powerups]);
+  }, [gameStatus, session, user]);
 
   // Sync local session state to Firestore periodically
   useEffect(() => {
@@ -277,20 +303,26 @@ export function GameProvider({ children }: { children: ReactNode }) {
             
             } else if (isBot) {
                 // Bots are a special boost type stored on the user doc
-                const newBoosts: UserBoost[] = [...(currentUser.boosts || [])];
+                const botItem = item as BoostType;
+                const now = Date.now();
+                const expiryTimestamp = botItem.durationHours ? now + botItem.durationHours * 60 * 60 * 1000 : null;
+
                 const newBotInstance: UserBoost = {
-                    instanceId: `bot-${user.id.slice(0,4)}-${Date.now()}`,
-                    boostId: item.id,
-                    type: 'mining_bot',
-                    quantity: 1, // Each bot is an instance
+                    instanceId: `bot-${user.id.slice(0,4)}-${now}`,
+                    boostId: botItem.id,
+                    name: botItem.name,
+                    botType: botItem.botType,
+                    effects: botItem.effects,
+                    purchasedAt: new Date(now).toISOString(),
+                    expiryTimestamp: expiryTimestamp,
                     active: true,
                 };
-                newBoosts.push(newBotInstance);
-                transaction.update(userRef, { boosts: newBoosts });
+                transaction.update(userRef, { boosts: arrayUnion(newBotInstance) });
+
             } else {
                 // Consumable boosts are added to the userInventory collection
                 const inventoryRef = collection(db, 'userInventory');
-                const newItem: Omit<UserInventoryItem, 'id'> = {
+                const newItem = {
                     userId: user.id,
                     itemId: item.id,
                     itemType: 'boost',
