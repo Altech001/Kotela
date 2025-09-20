@@ -1,3 +1,4 @@
+
 'use client';
 import type { User, Transaction, Wallet } from '@/lib/types';
 import { createContext } from 'react';
@@ -14,6 +15,8 @@ type AuthContextType = {
   addWalletAddress: (network: string) => Promise<void>;
   deleteWalletAddress: (walletId: string) => Promise<void>;
   toggleWalletStatus: (walletId: string) => Promise<void>;
+  toggleBotStatus: (userId: string, botInstanceId: string) => Promise<void>;
+  deleteBot: (userId: string, botInstanceId: string) => Promise<void>;
 };
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);

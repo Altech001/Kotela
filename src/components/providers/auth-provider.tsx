@@ -1,10 +1,9 @@
 
-
 'use client';
 
 import { useState, useCallback, ReactNode, useEffect } from 'react';
 import { AuthContext } from '@/contexts/auth-context';
-import type { User, Transaction, Boost, Powerup, Wallet } from '@/lib/types';
+import type { User, Transaction, Boost, Powerup, Wallet, UserBoost } from '@/lib/types';
 import { auth, db } from '@/lib/firebase';
 import {
   onAuthStateChanged,
@@ -72,18 +71,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         const userDocRef = doc(db, 'users', firebaseUser.uid);
-        const userDoc = await getDoc(userDocRef);
-        if (userDoc.exists()) {
-          setUser(userDoc.data() as User);
-        } else {
-           const newUser = createUserObject(firebaseUser);
-           await setDoc(userDocRef, newUser);
-           setUser(newUser);
-        }
+        const unsubscribeUser = onSnapshot(userDocRef, (doc) => {
+            if (doc.exists()) {
+                setUser(doc.data() as User);
+            } else {
+                // This case should ideally not happen after signup logic is correct
+                const newUser = createUserObject(firebaseUser);
+                setDoc(userDocRef, newUser).then(() => setUser(newUser));
+            }
+            setLoading(false);
+        }, (error) => {
+            console.error("Error listening to user document:", error);
+            setUser(null);
+            setLoading(false);
+        });
+        return () => unsubscribeUser();
       } else {
         setUser(null);
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => unsubscribe();
@@ -93,8 +99,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
+      // onAuthStateChanged will handle setting the user
     } finally {
-      setLoading(false);
+      // Don't setLoading(false) here, let the listener do it
     }
   }, []);
 
@@ -179,10 +186,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       await batch.commit();
       
-      setUser(newUser);
-
+      // onAuthStateChanged will set the user, no need to call setUser here.
     } finally {
-      setLoading(false);
+      // Don't setLoading(false) here, let the listener do it
     }
   }, []);
 
@@ -200,7 +206,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (user) {
       const userDocRef = doc(db, 'users', user.id);
       await updateDoc(userDocRef, data);
-      setUser((prev) => (prev ? { ...prev, ...data } : null));
+      // No need to call setUser, onSnapshot will handle it.
     }
   }, [user]);
 
@@ -216,14 +222,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       await updateDoc(userDocRef, {
         transactions: arrayUnion(newTransaction),
       });
-
-      setUser((prev) => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          transactions: [...(prev?.transactions || []), newTransaction],
-        };
-      });
+      // No need to call setUser, onSnapshot will handle it.
     }
   }, [user]);
 
@@ -236,15 +235,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
         await runTransaction(db, async (transaction) => {
             const usersRef = collection(db, 'users');
-            
-            const recipientQuery = query(usersRef, or(
-                where('referralCode', '==', recipientIdentifier),
-                where('wallets', 'array-contains', { address: recipientIdentifier }) // This is tricky for nested objects
-            ));
-            
-            // Because of Firestore query limitations on nested arrays, we might need to fetch and filter client-side or restructure data.
-            // For now, let's try a direct wallet address query which might fail and then try referral code.
-            // A better solution would be a root-level collection for wallets if they need to be globally unique and searchable.
             
             const allUsersSnapshot = await getDocs(usersRef);
             let recipientDoc: any = null;
@@ -303,15 +293,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             
             transaction.update(senderRef, { ktc: newSenderKtc, transactions: arrayUnion(senderTx) });
             transaction.update(recipientRef, { ktc: newRecipientKtc, transactions: arrayUnion(recipientTx) });
-
-             setUser((prev) => {
-                if (!prev) return null;
-                return {
-                ...prev,
-                ktc: newSenderKtc,
-                transactions: [...(prev.transactions || []), senderTx],
-                };
-            });
         });
     } catch (error) {
         console.error("KTC Transfer failed: ", error);
@@ -331,8 +312,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         address: createWalletAddress(network, user.id),
         status: 'active'
       };
-      const newWallets = [...currentWallets, newWallet];
-      await updateUser({ wallets: newWallets });
+      await updateUser({ wallets: arrayUnion(newWallet) as any });
     }
   }, [user, updateUser]);
 
@@ -355,8 +335,37 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [user, updateUser]);
 
+  const toggleBotStatus = useCallback(async (userId: string, botInstanceId: string) => {
+    const userRef = doc(db, 'users', userId);
+    await runTransaction(db, async (transaction) => {
+      const userDoc = await transaction.get(userRef);
+      if (!userDoc.exists()) throw new Error("User not found");
 
-  const value = { user, loading, login, signup, logout, updateUser, addTransaction, transferKtc, addWalletAddress, deleteWalletAddress, toggleWalletStatus };
+      const boosts = userDoc.data().boosts as UserBoost[];
+      const botIndex = boosts.findIndex(b => b.instanceId === botInstanceId);
+      
+      if (botIndex === -1) throw new Error("Bot not found");
+
+      boosts[botIndex].active = !boosts[botIndex].active;
+      transaction.update(userRef, { boosts });
+    });
+  }, []);
+
+  const deleteBot = useCallback(async (userId: string, botInstanceId: string) => {
+    const userRef = doc(db, 'users', userId);
+    await runTransaction(db, async (transaction) => {
+      const userDoc = await transaction.get(userRef);
+      if (!userDoc.exists()) throw new Error("User not found");
+
+      const boosts = userDoc.data().boosts as UserBoost[];
+      const updatedBoosts = boosts.filter(b => b.instanceId !== botInstanceId);
+
+      transaction.update(userRef, { boosts: updatedBoosts });
+    });
+  }, []);
+
+
+  const value = { user, loading, login, signup, logout, updateUser, addTransaction, transferKtc, addWalletAddress, deleteWalletAddress, toggleWalletStatus, toggleBotStatus, deleteBot };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

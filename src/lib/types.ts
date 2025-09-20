@@ -59,6 +59,8 @@ export type Powerup = {
 export type UserBoost = {
   boostId: string;
   quantity: number;
+  instanceId?: string; // For individual bot instances
+  active?: boolean;    // For bot status
 };
 
 export type UserPowerup = {

@@ -1,10 +1,11 @@
+
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Coins, Eye, Copy, ShieldCheck, Settings, ArrowRight, User, Upload, Download, Send, PlusCircle, Globe, Trash2, EyeOff, Users, ArrowRightLeft, ChevronLeft, ChevronRight, LogOut, Power, PowerOff } from 'lucide-react';
+import { Coins, Eye, Copy, ShieldCheck, Settings, ArrowRight, User, Upload, Download, Send, PlusCircle, Globe, Trash2, EyeOff, Users, ArrowRightLeft, ChevronLeft, ChevronRight, LogOut, Power, PowerOff, Bot } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -391,6 +392,16 @@ export default function ProfilePage() {
                         <span>{user.isKycVerified ? 'Verified' : 'Unverified'}</span>
                         <ArrowRight className="h-4 w-4" />
                     </div>
+                </Link>
+                 <Link href="/profile/bots" className="p-4 flex items-center justify-between hover:bg-muted/50">
+                    <div className="flex items-center gap-3">
+                        <Bot className="h-5 w-5 text-muted-foreground" />
+                        <div>
+                            <p className="font-medium">My Bots</p>
+                            <p className="text-xs text-muted-foreground">Manage your auto-mining bots.</p>
+                        </div>
+                    </div>
+                    <ArrowRight className="h-4 w-4 text-muted-foreground" />
                 </Link>
                 <Dialog>
                     <DialogTrigger asChild>

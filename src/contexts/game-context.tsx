@@ -227,6 +227,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (!user) return false;
 
     const isPowerup = 'maxQuantity' in item;
+    const isBot = item.type === 'mining_bot';
 
     try {
         const userRef = doc(db, 'users', user.id);
@@ -271,13 +272,24 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
             } else { // It's a boost
                 const newBoosts: UserBoost[] = [...(currentUser.boosts || [])];
-                const existingBoostIndex = newBoosts.findIndex(b => b.boostId === item.id);
-
-                if (existingBoostIndex > -1) {
-                    newBoosts[existingBoostIndex].quantity += 1;
+                
+                if (isBot) {
+                    const newBotInstance: UserBoost = {
+                        instanceId: `bot-${user.id.slice(0,4)}-${Date.now()}`,
+                        boostId: item.id,
+                        quantity: 1, // Each bot is an instance
+                        active: true,
+                    };
+                    newBoosts.push(newBotInstance);
                 } else {
-                    newBoosts.push({ boostId: item.id, quantity: 1 });
+                    const existingBoostIndex = newBoosts.findIndex(b => b.boostId === item.id && !b.instanceId);
+                    if (existingBoostIndex > -1) {
+                        newBoosts[existingBoostIndex].quantity += 1;
+                    } else {
+                        newBoosts.push({ boostId: item.id, quantity: 1, active: true });
+                    }
                 }
+                
                 transaction.update(userRef, {
                     ktc: currentUser.ktc - item.cost,
                     boosts: newBoosts,
@@ -313,7 +325,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
             let itemFound = false;
             // Try to find and decrement in boosts
             const newBoosts: UserBoost[] = [...currentUser.boosts];
-            const boostIndex = newBoosts.findIndex((b: UserBoost) => b.boostId === itemId && b.quantity > 0);
+            const boostIndex = newBoosts.findIndex((b: UserBoost) => b.boostId === itemId && !b.instanceId && b.quantity > 0);
             if (boostIndex > -1) {
                 newBoosts[boostIndex].quantity -= 1;
                 transaction.update(userRef, { boosts: newBoosts });
