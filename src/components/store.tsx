@@ -24,7 +24,7 @@ import {
 import { DialogHeader as UIDialogHeader, DialogTitle as UIDialogTitle, DialogDescription as UIDialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useGame } from '@/hooks/use-game';
-import { Bot, Clock, Zap, Snowflake, Gem, Coins } from 'lucide-react';
+import { Bot, Clock, Zap, Snowflake, Gem, Coins, Gift, Bomb, Rocket } from 'lucide-react';
 import type { Boost, Powerup } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
 import { Badge } from '@/components/ui/badge';
@@ -43,11 +43,18 @@ const iconMap: { [key: string]: React.ElementType } = {
   time_freeze: Snowflake,
   permanent_multiplier: Gem,
   bot_upgrade: Gem,
+  scoreBomb: Gift,
+  frenzy: Zap,
+  missile: Bomb,
+  rocket: Rocket,
 };
 
 const ItemCard = ({ item, onBuyClick, userPowerups }: { item: StoreItem, onBuyClick: (item: StoreItem) => void, userPowerups: string[] }) => {
-    const Icon = iconMap[item.type];
+    const Icon = iconMap[item.type] || iconMap[item.id] || Zap;
     const isPowerup = 'maxQuantity' in item;
+    const userItem = userPowerups.find(p => p === item.id);
+    const quantityOwned = isPowerup ? (userItem ? 1 : 0) : 0; // Simplified for now
+    
     const isSoldOut = item.status === 'sold' || (isPowerup && item.maxQuantity === 1 && userPowerups.includes(item.id));
     
     return (
@@ -108,12 +115,16 @@ export function Store({ isDialog = false }: { isDialog?: boolean }) {
       });
       return;
     }
-     if ('maxQuantity' in item && item.maxQuantity === 1 && userPowerups.includes(item.id)) {
-      toast({
-        title: 'Already Owned',
-        description: 'You can only own one of this power-up.',
-      });
-      return;
+     if ('maxQuantity' in item) {
+        const powerup = item as Powerup;
+        const ownedPowerup = user?.powerups.find(p => p.powerupId === powerup.id);
+        if (ownedPowerup && (ownedPowerup.quantity || 0) >= powerup.maxQuantity) {
+             toast({
+                title: 'Already Owned',
+                description: `You have reached the max quantity for ${powerup.name}.`,
+             });
+             return;
+        }
     }
     if (user && user.ktc < item.cost) {
       toast({
@@ -128,7 +139,7 @@ export function Store({ isDialog = false }: { isDialog?: boolean }) {
   };
 
   const confirmPurchase = async () => {
-    if (!selectedItem) return;
+    if (!selectedItem || !user) return;
 
     const success = await buyItem(selectedItem);
     if (success) {
@@ -137,9 +148,11 @@ export function Store({ isDialog = false }: { isDialog?: boolean }) {
         description: `You've bought ${selectedItem.name}.`,
       });
     } else {
+      // The buyItem function should ideally provide a more specific error.
+      // For now, a generic message is shown, but we already have specific client-side checks.
       toast({
         title: 'Purchase Failed',
-        description: 'Not enough KTC or item already owned.',
+        description: 'An unknown error occurred. Please try again.',
         variant: 'destructive',
       });
     }
@@ -175,19 +188,19 @@ export function Store({ isDialog = false }: { isDialog?: boolean }) {
                       )}
                   </TabsContent>
                    <TabsContent value="powerups">
-                      {loading ? (
+                        {loading ? (
                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                           {Array.from({ length: 2 }).map((_, i) => (
+                           {Array.from({ length: 6 }).map((_, i) => (
                               <Skeleton className="h-40" key={i} />
                           ))}
                           </div>
-                      ) : (
+                        ) : (
                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                               {powerups.map((item) => (
                                  <ItemCard key={item.id} item={item} onBuyClick={handleBuyClick} userPowerups={userPowerups} />
                               ))}
                           </div>
-                      )}
+                        )}
                   </TabsContent>
                 </div>
             </ScrollArea>
@@ -226,7 +239,7 @@ export function Store({ isDialog = false }: { isDialog?: boolean }) {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Purchase</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to buy {selectedItem?.name} for {selectedItem?.cost} KTC?
+              Are you sure you want to buy {selectedItem?.name} for {selectedItem?.cost.toLocaleString()} KTC?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -238,3 +251,5 @@ export function Store({ isDialog = false }: { isDialog?: boolean }) {
     </>
   );
 }
+
+    
