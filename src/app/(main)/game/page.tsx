@@ -199,8 +199,12 @@ export default function Home() {
                                const itemInfo = allItems.find(item => item.id === userItem.boostId);
                                if (!itemInfo || userItem.quantity <= 0) return null;
                                const Icon = inventoryIcons[itemInfo.type] || inventoryIcons[itemInfo.id] || Zap;
-                               // Create a unique key by combining type and id
-                               const uniqueKey = `${userItem.itemType}-${itemInfo.id}`;
+                               
+                               // Create a unique key for each item
+                               const uniqueKey = userItem.instanceId 
+                                 ? `${userItem.itemType}-${itemInfo.id}-${userItem.instanceId}`
+                                 : `${userItem.itemType}-${itemInfo.id}`;
+
                                return (
                                    <div key={uniqueKey} className="flex items-center gap-2 p-2 bg-muted rounded-md text-xs font-bold">
                                        {Icon && <Icon className="w-4 h-4" />}
