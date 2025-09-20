@@ -3,7 +3,7 @@
 
 import { createContext, useState, useEffect, useCallback, ReactNode, useMemo } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import type { Boost as BoostType, Powerup as PowerupType, GameSession } from '@/lib/types';
+import type { Boost as BoostType, Powerup as PowerupType, GameSession, UserPowerup } from '@/lib/types';
 import { runPrivacyAnalysis, getBoost, getPowerups } from '@/lib/actions';
 import { db } from '@/lib/firebase';
 import { doc, setDoc, getDoc, updateDoc, deleteDoc, onSnapshot, runTransaction, arrayUnion } from 'firebase/firestore';
@@ -223,13 +223,32 @@ export function GameProvider({ children }: { children: ReactNode }) {
             if (currentUser.ktc < item.cost) throw "Insufficient KTC.";
 
             if (isPowerup) {
-                const currentPowerups = currentUser.powerups || [];
-                const hasPowerup = currentPowerups.some((p: any) => p.powerupId === item.id);
-                if (hasPowerup) throw "Power-up already owned.";
+                const powerupItem = item as PowerupType;
+                const newPowerups: UserPowerup[] = [...(currentUser.powerups || [])];
+                const existingPowerupIndex = newPowerups.findIndex(p => p.powerupId === powerupItem.id);
+
+                if (existingPowerupIndex > -1) {
+                    // It exists, check quantity
+                    const existingPowerup = newPowerups[existingPowerupIndex];
+                    if (powerupItem.maxQuantity === 1) {
+                        throw "Power-up already owned.";
+                    }
+                     if ((existingPowerup.quantity || 0) >= powerupItem.maxQuantity) {
+                         throw `Max quantity of ${powerupItem.name} reached.`;
+                    }
+                    newPowerups[existingPowerupIndex].quantity = (existingPowerup.quantity || 0) + 1;
+                } else {
+                    // It's a new powerup for the user
+                    newPowerups.push({
+                        powerupId: powerupItem.id,
+                        purchasedAt: new Date().toISOString(),
+                        quantity: 1
+                    });
+                }
                 
                 transaction.update(userRef, {
                     ktc: currentUser.ktc - item.cost,
-                    powerups: arrayUnion({ powerupId: item.id, purchasedAt: new Date().toISOString() }),
+                    powerups: newPowerups,
                 });
 
             } else { // It's a boost
